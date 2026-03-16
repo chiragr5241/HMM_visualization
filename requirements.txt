@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+orjson
+jax[cpu]
+equinox
+chex
+pydantic
+simplexity @ git+https://github.com/Astera-org/simplexity.git@feat/run-context-zrr
