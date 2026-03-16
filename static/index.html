@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Belief State Geometry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<div class="layout">
+
+  <!-- ══════════════════ SIDEBAR ══════════════════ -->
+  <aside class="sidebar">
+
+    <div class="sidebar-header">
+      <div class="logo-row">
+        <span class="logo-icon">&#x2B21;</span>
+        <div>
+          <h1>Belief State<br/>Geometry</h1>
+          <p class="subtitle">Mixed-State Presentations of generative processes</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Process selector -->
+    <div class="section">
+      <div class="section-label">Process</div>
+      <div class="process-grid" id="process-grid">
+        <button class="proc-btn active" data-proc="mess3">MESS3</button>
+        <button class="proc-btn" data-proc="mess3_2">MESS3-2</button>
+        <button class="proc-btn" data-proc="river">RIVER</button>
+        <button class="proc-btn" data-proc="leopard">LEOPARD</button>
+        <button class="proc-btn" data-proc="fern">FERN</button>
+        <button class="proc-btn fanizza-btn" data-proc="fanizza">FANIZZA</button>
+      </div>
+    </div>
+
+    <!-- Parameters -->
+    <div class="section" id="param-section">
+      <div class="section-label" id="param-section-label">Parameters</div>
+      <div id="param-list"></div>
+    </div>
+
+    <!-- Mode toggle -->
+    <div class="section">
+      <div class="section-label">Mode</div>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="mode-sample">Sample</button>
+        <button class="mode-btn" id="mode-enum">Enumerate</button>
+      </div>
+    </div>
+
+    <!-- Sample mode controls -->
+    <div class="section" id="sample-section">
+      <div class="section-label">Sampling <span class="muted">(batch &times; seq length)</span></div>
+      <div class="param-row">
+        <div class="param-header">
+          <label class="param-label">Batch size</label>
+          <span class="param-val" id="batch-size-val">500</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-bound">50</span>
+          <input type="range" class="slider" id="batch-size" min="50" max="2000" step="50" value="500" />
+          <span class="slider-bound right">2000</span>
+        </div>
+      </div>
+      <div class="param-row">
+        <div class="param-header">
+          <label class="param-label">Sequence length</label>
+          <span class="param-val" id="seq-len-val">20</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-bound">5</span>
+          <input type="range" class="slider" id="seq-len" min="5" max="100" step="5" value="20" />
+          <span class="slider-bound right">100</span>
+        </div>
+      </div>
+      <div class="depth-hint">
+        &#8776; <span id="point-estimate">10,500</span> points
+      </div>
+    </div>
+
+    <!-- Enumerate mode controls (hidden by default) -->
+    <div class="section hidden" id="enum-section">
+      <div class="section-label">Depth <span class="muted">(max sequence length)</span></div>
+      <div class="depth-row">
+        <input type="range" class="slider" id="max-seq-len" min="3" max="14" step="1" value="8" />
+        <span class="depth-val" id="max-seq-len-val">8</span>
+      </div>
+      <div class="depth-hint">
+        &#8776; <span id="node-estimate">9,841</span> nodes
+      </div>
+    </div>
+
+    <!-- Compute -->
+    <div class="compute-section">
+      <button class="compute-btn" id="compute-btn">
+        <svg class="btn-icon" viewBox="0 0 16 16" fill="none">
+          <path d="M8 1.5L13.5 8L8 14.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M2.5 8H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <span class="btn-label">Sample</span>
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-panel" id="stats-panel">
+      <div class="stat-item">
+        <div class="stat-label">Points</div>
+        <div class="stat-val" id="stat-nodes">&mdash;</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-label">Time</div>
+        <div class="stat-val" id="stat-time">&mdash;</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-label">States</div>
+        <div class="stat-val" id="stat-states">3</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <div class="stat-label">Symbols</div>
+        <div class="stat-val" id="stat-symbols">3</div>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="description" id="description"></div>
+
+    <div class="sidebar-footer">
+      <a href="https://arxiv.org/abs/2405.15943" target="_blank" class="ref-link">
+        <span>arXiv:2405.15943</span> &#8599;
+      </a>
+      <a href="https://github.com/Astera-org/simplexity" target="_blank" class="ref-link">
+        simplexity &#8599;
+      </a>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════════ MAIN ══════════════════ -->
+  <main class="main">
+
+    <!-- Loading overlay -->
+    <div class="loading-overlay hidden" id="loading-overlay">
+      <div class="loading-card">
+        <div class="spinner-ring"></div>
+        <div class="loading-text">
+          Computing&hellip;
+          <span class="loading-sub" id="loading-sub">
+            First run includes JAX JIT compilation (~15 s)
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plot area -->
+    <div class="plot-area" id="plot-area">
+      <div id="main-plot" class="plot-container"></div>
+      <div id="cantor-plot" class="plot-container cantor-container hidden"></div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state hidden" id="empty-state">
+      <div class="empty-icon">&#x2B21;</div>
+      <div class="empty-title">No data yet</div>
+      <div class="empty-sub">Select a process and click <strong>Sample</strong></div>
+    </div>
+
+  </main>
+
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
