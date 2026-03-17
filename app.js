@@ -328,61 +328,48 @@ function scheduleAutoCompute() {
 }
 
 // ── Compute ────────────────────────────────────────────────────────────────────
-async function compute() {
+function compute() {
   if (isComputing) return;
   clearTimeout(debounceTimer);
 
   isComputing = true;
   DOM.computeBtn.disabled = true;
   DOM.emptyState.classList.add('hidden');
-  // Only show loading overlay if computation takes > 200ms
+  // Allow loading overlay to paint before blocking computation
   clearTimeout(loadingTimer);
-  loadingTimer = setTimeout(() => DOM.loadingOv.classList.remove('hidden'), 200);
+  loadingTimer = setTimeout(() => DOM.loadingOv.classList.remove('hidden'), 50);
 
   const proc   = currentProcess;
   const params = getParams();
-  const t0     = performance.now();
 
-  const body = { process: proc, params, mode: currentMode };
-  if (currentMode === 'sample') {
-    body.batch_size = parseInt(DOM.batchSizeSl.value);
-    body.seq_len    = parseInt(DOM.seqLenSl.value);
-    body.seed       = seedCounter++;
-  } else {
-    body.max_seq_len = parseInt(DOM.depthSl.value);
-  }
+  // Use setTimeout(0) so the loading overlay can paint before the sync computation runs
+  setTimeout(() => {
+    const t0 = performance.now();
+    try {
+      const modeParams = currentMode === 'sample'
+        ? { batchSize: parseInt(DOM.batchSizeSl.value), seqLen: parseInt(DOM.seqLenSl.value), seed: seedCounter++ }
+        : { maxSeqLen: parseInt(DOM.depthSl.value) };
 
-  try {
-    const resp = await fetch('/api/compute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+      const data    = computeResult(proc, params, currentMode, modeParams);
+      const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
 
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      throw new Error(err.detail || `HTTP ${resp.status}`);
+      if (proc !== currentProcess) return;
+
+      DOM.statNodes.textContent = data.n?.toLocaleString() ?? '\u2014';
+      DOM.statTime.textContent  = `${elapsed}s`;
+
+      renderVisualization(proc, data, params);
+
+    } catch (err) {
+      console.error('Compute error:', err);
+      showError(err.message);
+    } finally {
+      isComputing = false;
+      clearTimeout(loadingTimer);
+      DOM.loadingOv.classList.add('hidden');
+      DOM.computeBtn.disabled = false;
     }
-
-    const data    = await resp.json();
-    const elapsed = ((performance.now() - t0) / 1000).toFixed(1);
-
-    if (proc !== currentProcess) return;
-
-    DOM.statNodes.textContent = data.n?.toLocaleString() ?? '\u2014';
-    DOM.statTime.textContent  = `${elapsed}s`;
-
-    renderVisualization(proc, data, params);
-
-  } catch (err) {
-    console.error('Compute error:', err);
-    showError(err.message);
-  } finally {
-    isComputing = false;
-    clearTimeout(loadingTimer);
-    DOM.loadingOv.classList.add('hidden');
-    DOM.computeBtn.disabled = false;
-  }
+  }, 0);
 }
 
 // ── Render dispatch ────────────────────────────────────────────────────────────
