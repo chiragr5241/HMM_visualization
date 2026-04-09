@@ -509,11 +509,16 @@ function ghmmObsProbDist(belief, model) {
 
 // ── Format results ─────────────────────────────────────────────────────────
 
-function formatSimplex(beliefStates) {
+function formatSimplex(beliefStates, model) {
   const n = beliefStates.length;
+  const { T, numSymbols } = model;
   const xArr = new Float64Array(n), yArr = new Float64Array(n);
   const rArr = new Uint8Array(n), gArr = new Uint8Array(n), bArr = new Uint8Array(n);
   const bsArr = [];
+
+  // Obs probs per symbol
+  const obsProbs = [];
+  for (let s = 0; s < numSymbols; s++) obsProbs.push(new Float64Array(n));
 
   for (let i = 0; i < n; i++) {
     const bs = beliefStates[i];
@@ -529,6 +534,12 @@ function formatSimplex(beliefStates) {
       Math.round(bs[1] * 100000) / 100000,
       Math.round(bs[2] * 100000) / 100000,
     ]);
+
+    // Compute observation probabilities
+    for (let s = 0; s < numSymbols; s++) {
+      const stateAfterObs = vecMatMul(bs, T[s]);
+      obsProbs[s][i] = vecSum(stateAfterObs);
+    }
   }
 
   return {
@@ -536,15 +547,21 @@ function formatSimplex(beliefStates) {
     x: Array.from(xArr), y: Array.from(yArr),
     r: Array.from(rArr), g: Array.from(gArr), b: Array.from(bArr),
     bs: bsArr, n,
+    obsProbs: obsProbs.map(a => Array.from(a)),
+    numSymbols,
   };
 }
 
 function formatPCA(beliefStates, model) {
   const n = beliefStates.length;
-  const colorVal = new Float64Array(n);
+  const { numSymbols } = model;
+
+  const obsProbs = [];
+  for (let s = 0; s < numSymbols; s++) obsProbs.push(new Float64Array(n));
+
   for (let i = 0; i < n; i++) {
     const pObs = ghmmObsProbDist(beliefStates[i], model);
-    colorVal[i] = pObs[0];
+    for (let s = 0; s < numSymbols; s++) obsProbs[s][i] = pObs[s];
   }
 
   const { x, y, varRatios } = pca2D(beliefStates);
@@ -552,9 +569,11 @@ function formatPCA(beliefStates, model) {
   return {
     type: 'pca',
     x, y,
-    color_val: Array.from(colorVal),
+    color_val: Array.from(obsProbs[0]),
     n,
     var_ratios: varRatios,
+    obsProbs: obsProbs.map(a => Array.from(a)),
+    numSymbols,
   };
 }
 
@@ -585,7 +604,7 @@ function computeResult(process, params, mode, modeParams) {
   if (isGHMM) {
     result = formatPCA(beliefStates, model);
   } else {
-    result = formatSimplex(beliefStates);
+    result = formatSimplex(beliefStates, model);
   }
   result.mode = mode;
   return result;

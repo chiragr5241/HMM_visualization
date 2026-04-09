@@ -137,11 +137,11 @@ const PROCESSES = {
 };
 
 // ── Plotly theme constants ─────────────────────────────────────────────────────
-const BG       = '#0b0d18';
-const PLOT_BG  = '#10121f';
-const GRID_COL = '#1a1d30';
-const TEXT_COL = '#676b8c';
-const TICK_COL = '#9097b8';
+const BG       = '#08090c';
+const PLOT_BG  = '#0f1014';
+const GRID_COL = '#1a1b20';
+const TEXT_COL = '#66635b';
+const TICK_COL = '#8a8478';
 
 // ── Cached DOM refs ─────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -170,6 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
     emptyState:    $('empty-state'),
     cantorPlot:    $('cantor-plot'),
     mainPlot:      $('main-plot'),
+    obsProbPlot:   $('obs-prob-plot'),
+    logObsProbPlot:$('log-obs-prob-plot'),
     // Sample mode controls
     batchSizeSl:   $('batch-size'),
     batchSizeVal:  $('batch-size-val'),
@@ -384,6 +386,12 @@ function renderVisualization(proc, data, params) {
     plotPCA(data, 'main-plot', title);
     plotCantor(data.color_val, 'cantor-plot');
   }
+
+  // Show observation probability plots
+  DOM.obsProbPlot.classList.remove('hidden');
+  DOM.logObsProbPlot.classList.remove('hidden');
+  plotObsProbs(data, 'obs-prob-plot');
+  plotLogObsProbs(data, 'log-obs-prob-plot');
 }
 
 function buildTitle(proc, params, data) {
@@ -439,7 +447,7 @@ function plotSimplex(data, containerId, title) {
     x: [V[0][0], V[1][0], V[2][0], V[0][0]],
     y: [V[0][1], V[1][1], V[2][1], V[0][1]],
     mode: 'lines', type: 'scatter',
-    line: { color: '#2a2f50', width: 2 },
+    line: { color: '#1e2029', width: 2 },
     showlegend: false, hoverinfo: 'skip',
   };
 
@@ -448,8 +456,8 @@ function plotSimplex(data, containerId, title) {
     mode: 'markers+text', type: 'scatter',
     text: ['S\u2080', 'S\u2081', 'S\u2082'],
     textposition: ['bottom left', 'bottom right', 'top center'],
-    textfont: { size: 14, color: '#7b7faa', family: 'JetBrains Mono, monospace' },
-    marker: { color: '#7b7faa', size: 9 },
+    textfont: { size: 14, color: '#66635b', family: 'Fira Code, monospace' },
+    marker: { color: '#66635b', size: 9 },
     showlegend: false, hoverinfo: 'skip',
   };
 
@@ -468,7 +476,7 @@ function plotSimplex(data, containerId, title) {
   };
 
   const layout = {
-    title: { text: title, font: { size: 12, color: '#9097b8' }, x: 0.03, xanchor: 'left' },
+    title: { text: title, font: { size: 12, color: '#8a8478' }, x: 0.03, xanchor: 'left' },
     xaxis: { visible: false, range: [-0.1, 1.1], scaleanchor: 'y', fixedrange: false },
     yaxis: { visible: false, range: [-0.14, sqrt3 / 2 + 0.14], fixedrange: false },
     paper_bgcolor: BG, plot_bgcolor: BG,
@@ -496,7 +504,7 @@ function plotPCA(data, containerId, title) {
         title: { text: 'P(obs=0)', font: { color: TICK_COL, size: 11 } },
         thickness: 12, len: 0.65,
         tickfont: { color: TICK_COL, size: 10 },
-        bgcolor: 'rgba(0,0,0,0)', bordercolor: '#22263d', tickformat: '.2f',
+        bgcolor: 'rgba(0,0,0,0)', bordercolor: '#1e2029', tickformat: '.2f',
       },
     },
     hovertemplate:
@@ -506,7 +514,7 @@ function plotPCA(data, containerId, title) {
   };
 
   const layout = {
-    title: { text: title, font: { size: 12, color: '#9097b8' }, x: 0.03, xanchor: 'left' },
+    title: { text: title, font: { size: 12, color: '#8a8478' }, x: 0.03, xanchor: 'left' },
     xaxis: {
       title: { text: `PC1  (${(vr1 * 100).toFixed(1)}%)`, font: { size: 11, color: TEXT_COL } },
       color: TEXT_COL, gridcolor: GRID_COL, zeroline: false, tickfont: { size: 10, color: TICK_COL },
@@ -543,7 +551,7 @@ function plotCantor(cantorVals, containerId) {
   const layout = {
     title: {
       text: 'P(next obs = 0)  \u00b7  Cantor set structure',
-      font: { size: 11, color: '#9097b8' }, x: 0.02, xanchor: 'left',
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
     },
     xaxis: {
       range: [-0.02, 1.02], color: TEXT_COL, gridcolor: GRID_COL,
@@ -557,6 +565,101 @@ function plotCantor(cantorVals, containerId) {
   };
 
   Plotly.react(containerId, [rug], layout, plotConfig());
+}
+
+// ── Observation probability rug plots ──────────────────────────────────────────
+const SYMBOL_COLORS = ['#c9944a', '#5b9a8b', '#8bba7f', '#d4685a', '#ddb070'];
+
+function plotObsProbs(data, containerId) {
+  const { obsProbs, numSymbols } = data;
+  const traces = [];
+
+  for (let s = 0; s < numSymbols; s++) {
+    const sorted = Float64Array.from(obsProbs[s]).sort();
+    traces.push({
+      x: Array.from(sorted),
+      y: Array.from(new Float64Array(sorted.length).fill(s)),
+      mode: 'markers', type: 'scatter',
+      marker: {
+        color: SYMBOL_COLORS[s], size: 3, symbol: 'line-ns', opacity: 0.7,
+        line: { width: 1.5, color: SYMBOL_COLORS[s] },
+      },
+      hovertemplate: `P(obs=${s}) = %{x:.6f}<extra>Symbol ${s}</extra>`,
+      showlegend: true,
+      name: `sym ${s}`,
+    });
+  }
+
+  const layout = {
+    title: {
+      text: 'Observation probabilities  ·  P(next obs = s)',
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
+    },
+    xaxis: {
+      range: [-0.02, 1.02], color: TEXT_COL, gridcolor: GRID_COL,
+      zeroline: false, tickfont: { size: 9, color: TICK_COL },
+      title: { text: 'P(obs = s)', font: { size: 10, color: TEXT_COL } },
+    },
+    yaxis: { visible: false, range: [-0.8, numSymbols - 0.2] },
+    paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+    margin: { t: 32, b: 42, l: 10, r: 10 },
+    legend: {
+      font: { color: TEXT_COL, size: 10 }, bgcolor: 'rgba(0,0,0,0)',
+      orientation: 'h', x: 0.75, y: 1.0,
+    },
+    autosize: true,
+  };
+
+  Plotly.react(containerId, traces, layout, plotConfig());
+}
+
+function plotLogObsProbs(data, containerId) {
+  const { obsProbs, numSymbols } = data;
+  const traces = [];
+  let minLog = 0;
+
+  for (let s = 0; s < numSymbols; s++) {
+    const logVals = new Float64Array(obsProbs[s].length);
+    for (let i = 0; i < obsProbs[s].length; i++) {
+      logVals[i] = obsProbs[s][i] > 0 ? Math.log(obsProbs[s][i]) : -20;
+      if (logVals[i] < minLog) minLog = logVals[i];
+    }
+    const sorted = Float64Array.from(logVals).sort();
+    traces.push({
+      x: Array.from(sorted),
+      y: Array.from(new Float64Array(sorted.length).fill(s)),
+      mode: 'markers', type: 'scatter',
+      marker: {
+        color: SYMBOL_COLORS[s], size: 3, symbol: 'line-ns', opacity: 0.7,
+        line: { width: 1.5, color: SYMBOL_COLORS[s] },
+      },
+      hovertemplate: `log P(obs=${s}) = %{x:.4f}<extra>Symbol ${s}</extra>`,
+      showlegend: true,
+      name: `sym ${s}`,
+    });
+  }
+
+  const layout = {
+    title: {
+      text: 'Log observation probabilities  ·  log P(next obs = s)',
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
+    },
+    xaxis: {
+      range: [Math.min(minLog * 1.1, -0.5), 0.1], color: TEXT_COL, gridcolor: GRID_COL,
+      zeroline: false, tickfont: { size: 9, color: TICK_COL },
+      title: { text: 'log P(obs = s)', font: { size: 10, color: TEXT_COL } },
+    },
+    yaxis: { visible: false, range: [-0.8, numSymbols - 0.2] },
+    paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+    margin: { t: 32, b: 42, l: 10, r: 10 },
+    legend: {
+      font: { color: TEXT_COL, size: 10 }, bgcolor: 'rgba(0,0,0,0)',
+      orientation: 'h', x: 0.75, y: 1.0,
+    },
+    autosize: true,
+  };
+
+  Plotly.react(containerId, traces, layout, plotConfig());
 }
 
 function plotConfig() {
