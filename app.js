@@ -535,14 +535,20 @@ function plotPCA(data, containerId, title) {
 // ── Cantor rug (Fanizza) ───────────────────────────────────────────────────────
 function plotCantor(cantorVals, containerId) {
   const sorted = Float64Array.from(cantorVals).sort();
+  const n = Math.min(sorted.length, RUG_MAX_POINTS);
+  const xs = sorted.length <= RUG_MAX_POINTS ? Array.from(sorted) : (() => {
+    const out = new Float64Array(n);
+    for (let i = 0; i < n; i++) out[i] = sorted[Math.round(i * (sorted.length - 1) / (n - 1))];
+    return Array.from(out);
+  })();
 
   const rug = {
-    x: sorted, y: new Float64Array(sorted.length),
+    x: xs, y: new Float64Array(xs.length),
     mode: 'markers', type: 'scatter',
     marker: {
-      color: Array.from(sorted), colorscale: 'RdBu', reversescale: true,
+      color: xs, colorscale: 'RdBu', reversescale: true,
       size: 3, symbol: 'line-ns',
-      line: { width: 1.5, color: Array.from(sorted), colorscale: 'RdBu', reversescale: true },
+      line: { width: 1.5, color: xs, colorscale: 'RdBu', reversescale: true },
     },
     hovertemplate: 'P(obs=0) = %{x:.6f}<extra></extra>',
     showlegend: false,
@@ -569,16 +575,28 @@ function plotCantor(cantorVals, containerId) {
 
 // ── Observation probability rug plots ──────────────────────────────────────────
 const SYMBOL_COLORS = ['#c9944a', '#5b9a8b', '#8bba7f', '#d4685a', '#ddb070'];
+const RUG_MAX_POINTS = 1500;
+
+function subsampleSorted(arr) {
+  const sorted = Float64Array.from(arr).sort();
+  if (sorted.length <= RUG_MAX_POINTS) return Array.from(sorted);
+  // Uniform subsample preserving min/max
+  const out = new Float64Array(RUG_MAX_POINTS);
+  for (let i = 0; i < RUG_MAX_POINTS; i++) {
+    out[i] = sorted[Math.round(i * (sorted.length - 1) / (RUG_MAX_POINTS - 1))];
+  }
+  return Array.from(out);
+}
 
 function plotObsProbs(data, containerId) {
   const { obsProbs, numSymbols } = data;
   const traces = [];
 
   for (let s = 0; s < numSymbols; s++) {
-    const sorted = Float64Array.from(obsProbs[s]).sort();
+    const xs = subsampleSorted(obsProbs[s]);
     traces.push({
-      x: Array.from(sorted),
-      y: Array.from(new Float64Array(sorted.length).fill(s)),
+      x: xs,
+      y: new Array(xs.length).fill(s),
       mode: 'markers', type: 'scatter',
       marker: {
         color: SYMBOL_COLORS[s], size: 3, symbol: 'line-ns', opacity: 0.7,
@@ -592,7 +610,7 @@ function plotObsProbs(data, containerId) {
 
   const layout = {
     title: {
-      text: 'Observation probabilities  ·  P(next obs = s)',
+      text: 'Observation probabilities  \u00b7  P(next obs = s)',
       font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
     },
     xaxis: {
@@ -624,10 +642,10 @@ function plotLogObsProbs(data, containerId) {
       logVals[i] = obsProbs[s][i] > 0 ? Math.log(obsProbs[s][i]) : -20;
       if (logVals[i] < minLog) minLog = logVals[i];
     }
-    const sorted = Float64Array.from(logVals).sort();
+    const xs = subsampleSorted(logVals);
     traces.push({
-      x: Array.from(sorted),
-      y: Array.from(new Float64Array(sorted.length).fill(s)),
+      x: xs,
+      y: new Array(xs.length).fill(s),
       mode: 'markers', type: 'scatter',
       marker: {
         color: SYMBOL_COLORS[s], size: 3, symbol: 'line-ns', opacity: 0.7,
@@ -641,7 +659,7 @@ function plotLogObsProbs(data, containerId) {
 
   const layout = {
     title: {
-      text: 'Log observation probabilities  ·  log P(next obs = s)',
+      text: 'Log observation probabilities  \u00b7  log P(next obs = s)',
       font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
     },
     xaxis: {
