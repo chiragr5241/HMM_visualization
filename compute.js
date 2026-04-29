@@ -134,6 +134,181 @@ function dominantEig(mat) {
   return { eigenvector: v, eigenvalue };
 }
 
+// ── Structural diagnostics: emission, eigenvalues, entropies ─────────────
+
+function emissionMatrix(T) {
+  // B[s, o] = Σ_{s'} T[o, s, s'] = P(obs | from-state).
+  // Mirrors REPORT.md emission_entropy convention.
+  const numSym = T.length;
+  const n = T[0].length;
+  const B = [];
+  for (let s = 0; s < n; s++) {
+    B[s] = new Float64Array(numSym);
+    for (let o = 0; o < numSym; o++) {
+      let row = 0;
+      for (let sp = 0; sp < n; sp++) row += T[o][s][sp];
+      B[s][o] = row;
+    }
+  }
+  return B;
+}
+
+function determinant3x3(M) {
+  return (
+    M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) -
+    M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) +
+    M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0])
+  );
+}
+
+function trace(M) {
+  let s = 0;
+  for (let i = 0; i < M.length; i++) s += M[i][i];
+  return s;
+}
+
+function eigenvalues3x3(A) {
+  // For a row-stochastic 3×3 matrix, λ = 1 is always an eigenvalue.
+  // Deflate it out: λ₂ + λ₃ = tr(A) − 1, λ₂·λ₃ = det(A).
+  // Solve the 2×2 quadratic for (λ₂, λ₃). More numerically stable than
+  // generic Cardano — the multiplicity-2 case (MESS3 x=0.5) gives a
+  // discriminant of exactly 0.
+  const tr = trace(A);
+  const det = determinant3x3(A);
+  const sumLast = tr - 1;
+  const prodLast = det;            // = 1 · λ₂ · λ₃
+  let disc = sumLast * sumLast - 4 * prodLast;
+  // Clamp tiny rounding-induced negatives to zero (e.g. MESS3 x=0.5 should
+  // produce a clean repeated root, not a spurious complex pair).
+  if (disc < 0 && disc > -1e-9) disc = 0;
+
+  let lambda2, lambda3;
+  if (disc >= 0) {
+    const sq = Math.sqrt(disc);
+    const r1 = (sumLast + sq) / 2;
+    const r2 = (sumLast - sq) / 2;
+    // Sort by absolute value, descending.
+    if (Math.abs(r1) >= Math.abs(r2)) {
+      lambda2 = { re: r1, im: 0 };
+      lambda3 = { re: r2, im: 0 };
+    } else {
+      lambda2 = { re: r2, im: 0 };
+      lambda3 = { re: r1, im: 0 };
+    }
+  } else {
+    const re = sumLast / 2;
+    const im = Math.sqrt(-disc) / 2;
+    lambda2 = { re, im };
+    lambda3 = { re, im: -im };
+  }
+  return [{ re: 1, im: 0 }, lambda2, lambda3];
+}
+
+function eigenvaluesGeneric(A) {
+  // Fallback for n != 3: deflated power iteration after subtracting the
+  // dominant outer product. Works for the small (≤4×4) matrices in this app
+  // but loses accuracy on tightly clustered eigenvalues. Only used when the
+  // 3×3 closed-form path is unavailable.
+  const n = A.length;
+  const eigs = [];
+  let M = A.map(row => Array.from(row));
+  for (let k = 0; k < n; k++) {
+    const { eigenvector: v, eigenvalue: lam } = dominantEig(M);
+    eigs.push({ re: lam, im: 0 });
+    // Deflate: M ← M − λ v vᵀ / (vᵀv)
+    let vv = 0;
+    for (let i = 0; i < n; i++) vv += v[i] * v[i];
+    if (vv === 0) break;
+    for (let i = 0; i < n; i++)
+      for (let j = 0; j < n; j++) M[i][j] -= lam * v[i] * v[j] / vv;
+  }
+  return eigs;
+}
+
+function sortedByModulus(eigs) {
+  return eigs.slice().sort((a, b) => Math.hypot(b.re, b.im) - Math.hypot(a.re, a.im));
+}
+
+function formatComplex(z, digits = 3) {
+  if (Math.abs(z.im) < 1e-10) {
+    return z.re.toFixed(digits);
+  }
+  const sign = z.im >= 0 ? '+' : '−';
+  return `${z.re.toFixed(digits)} ${sign} ${Math.abs(z.im).toFixed(digits)}i`;
+}
+
+function xlog2x(p) {
+  return p > 0 ? p * Math.log2(p) : 0;
+}
+
+function transitionEntropyBits(A, pi) {
+  // H(A) = − Σ_i π_i Σ_j A[i,j] log₂ A[i,j]
+  let H = 0;
+  for (let i = 0; i < A.length; i++) {
+    let rowH = 0;
+    for (let j = 0; j < A[i].length; j++) rowH -= xlog2x(A[i][j]);
+    H += pi[i] * rowH;
+  }
+  return H;
+}
+
+function emissionEntropyBits(B, pi) {
+  // H(B, μ) = − Σ_i π_i Σ_o B[i,o] log₂ B[i,o]
+  let H = 0;
+  for (let i = 0; i < B.length; i++) {
+    let rowH = 0;
+    for (let o = 0; o < B[i].length; o++) rowH -= xlog2x(B[i][o]);
+    H += pi[i] * rowH;
+  }
+  return H;
+}
+
+function computeStructuralMetrics(T, pi, isGHMM) {
+  if (isGHMM) {
+    return { supported: false };
+  }
+  const A = sumTransitionMatrices(T);
+  const B = emissionMatrix(T);
+  const n = A.length;
+
+  // Convert A (mix of Float64Array rows and plain arrays) to plain 2D arrays
+  // so determinant3x3/eigenvalues3x3 can index uniformly.
+  const Ap = A.map(row => Array.from(row));
+
+  const eigsRaw = (n === 3) ? eigenvalues3x3(Ap) : eigenvaluesGeneric(Ap);
+  const eigs = sortedByModulus(eigsRaw);
+  const lambda2_raw = eigs[1];
+  const mu = Math.hypot(lambda2_raw.re, lambda2_raw.im);
+
+  const numSymbols = T.length;
+  const H_A = transitionEntropyBits(Ap, pi);
+  const H_B = emissionEntropyBits(B, pi);
+  const log2M = Math.log2(n);
+  const log2L = Math.log2(numSymbols);
+  const h_A_tilde = log2M > 0 ? H_A / log2M : 0;
+  const h_B_tilde = log2L > 0 ? H_B / log2L : 0;
+  const h_total = h_A_tilde + h_B_tilde;
+  const mixingTime = mu < 1 - 1e-12 ? 1 / (1 - mu) : Infinity;
+
+  return {
+    supported: true,
+    A: Ap,
+    B: B.map(r => Array.from(r)),
+    pi: Array.from(pi),
+    eigenvalues: eigs,
+    lambda2_raw,
+    mu,
+    H_A,
+    H_B,
+    h_A_tilde,
+    h_B_tilde,
+    h_total,
+    mixingTime,
+    numStates: n,
+    numSymbols,
+  };
+}
+
 // ── PCA via covariance matrix ──────────────────────────────────────────────
 
 function pca2D(beliefStates) {
@@ -582,6 +757,8 @@ function formatPCA(beliefStates, model) {
 function computeResult(process, params, mode, modeParams) {
   const model = buildModel(process, params);
   const isGHMM = model.isGHMM;
+  // Structural metrics computed against the (post-scaling) T used by the model.
+  const metrics = computeStructuralMetrics(model.T, model.initialState, isGHMM);
 
   let beliefStates;
   if (mode === 'sample') {
@@ -607,5 +784,25 @@ function computeResult(process, params, mode, modeParams) {
     result = formatSimplex(beliefStates, model);
   }
   result.mode = mode;
+  result.metrics = metrics;
   return result;
+}
+
+// ── Structural-only computation (no belief sampling, for grid sweeps) ─────
+
+function structuralOnly(process, params) {
+  const T = (() => {
+    switch (process) {
+      case 'mess3':   return buildMess3(params.x, params.a);
+      case 'mess3_2': return buildMess3_2(params.x, params.a, params.p, params.q, params.r);
+      case 'river':   return buildRiver();
+      case 'leopard': return buildLeopard(params.x);
+      case 'fern':    return buildFern(params.x);
+      default: return null;
+    }
+  })();
+  if (!T) return null;
+  const stm = sumTransitionMatrices(T);
+  const pi = stationaryDistribution(stm);
+  return computeStructuralMetrics(T, pi, false);
 }

@@ -172,6 +172,19 @@ document.addEventListener('DOMContentLoaded', () => {
     mainPlot:      $('main-plot'),
     obsProbPlot:   $('obs-prob-plot'),
     logObsProbPlot:$('log-obs-prob-plot'),
+    paramGridPlot: $('param-grid-plot'),
+    structuralSec: $('structural-section'),
+    metricsGrid:   $('metrics-grid'),
+    metricsNote:   $('metrics-note'),
+    mMu:           $('metric-mu'),
+    mLambda2:      $('metric-lambda2'),
+    mPi:           $('metric-pi'),
+    mHA:           $('metric-HA'),
+    mHB:           $('metric-HB'),
+    mhA:           $('metric-hA'),
+    mhB:           $('metric-hB'),
+    mhTot:         $('metric-htot'),
+    mMixTime:      $('metric-mixtime'),
     // Sample mode controls
     batchSizeSl:   $('batch-size'),
     batchSizeVal:  $('batch-size-val'),
@@ -361,6 +374,8 @@ function compute() {
       DOM.statTime.textContent  = `${elapsed}s`;
 
       renderVisualization(proc, data, params);
+      renderStructuralPanel(data.metrics, proc);
+      renderParamGrid(proc, params);
 
     } catch (err) {
       console.error('Compute error:', err);
@@ -685,4 +700,234 @@ function plotConfig() {
     responsive: true, displayModeBar: true, displaylogo: false,
     modeBarButtonsToRemove: ['sendDataToCloud', 'select2d', 'lasso2d'],
   };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  STRUCTURAL METRICS (μ, entropies, h_total)
+// ══════════════════════════════════════════════════════════════════════
+
+function fmtFixed(v, d = 3) {
+  if (v === Infinity) return '\u221E';
+  if (!Number.isFinite(v)) return '\u2014';
+  return v.toFixed(d);
+}
+
+function fmtSigned(v, d = 3) {
+  if (!Number.isFinite(v)) return '\u2014';
+  // Use Unicode minus for negatives.
+  const s = v.toFixed(d);
+  return s.startsWith('-') ? '\u2212' + s.slice(1) : s;
+}
+
+function fmtComplex(z, d = 3) {
+  if (Math.abs(z.im) < 1e-10) return fmtSigned(z.re, d);
+  const sign = z.im >= 0 ? '+' : '\u2212';
+  return `${fmtSigned(z.re, d)} ${sign} ${Math.abs(z.im).toFixed(d)}i`;
+}
+
+function renderStructuralPanel(metrics, proc) {
+  if (!metrics || !metrics.supported) {
+    DOM.structuralSec.classList.add('unsupported');
+    DOM.metricsGrid.classList.add('hidden');
+    DOM.metricsNote.classList.remove('hidden');
+    DOM.metricsNote.textContent = proc === 'fanizza'
+      ? 'GHMM \u2014 stationary-\u03c0 entropies are not defined; mixing rate is the spectral radius of the dynamical operator.'
+      : 'Structural metrics not available for this process.';
+    return;
+  }
+
+  DOM.structuralSec.classList.remove('unsupported');
+  DOM.metricsGrid.classList.remove('hidden');
+  DOM.metricsNote.classList.add('hidden');
+
+  DOM.mMu.textContent       = fmtFixed(metrics.mu, 4);
+  DOM.mLambda2.textContent  = fmtComplex(metrics.lambda2_raw, 3);
+  DOM.mPi.textContent       = '(' + metrics.pi.map(p => p.toFixed(3)).join(', ') + ')';
+  DOM.mHA.innerHTML         = fmtFixed(metrics.H_A, 4) + ' <span class="metric-unit">bits</span>';
+  DOM.mHB.innerHTML         = fmtFixed(metrics.H_B, 4) + ' <span class="metric-unit">bits</span>';
+  DOM.mhA.textContent       = fmtFixed(metrics.h_A_tilde, 4);
+  DOM.mhB.textContent       = fmtFixed(metrics.h_B_tilde, 4);
+  DOM.mhTot.textContent     = fmtFixed(metrics.h_total, 4);
+  const mt = metrics.mixingTime;
+  DOM.mMixTime.innerHTML    = (mt === Infinity ? '\u221E' : fmtFixed(mt, 2)) + ' <span class="metric-unit">steps</span>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  PARAMETER-GRID PLOT (μ and h_total over the (a, x) plane)
+// ══════════════════════════════════════════════════════════════════════
+
+const MESS3_GRID = (() => {
+  const aVals = [];
+  const xVals = [];
+  const NA = 21, NX = 21;
+  for (let i = 0; i < NA; i++) aVals.push(0.10 + i * (0.99 - 0.10) / (NA - 1));
+  for (let j = 0; j < NX; j++) xVals.push(0.01 + j * (0.49 - 0.01) / (NX - 1));
+  // Build μ and h_total grids: rows indexed by a, columns by x.
+  const mu      = Array.from({ length: NA }, () => new Array(NX));
+  const hTotal  = Array.from({ length: NA }, () => new Array(NX));
+  for (let i = 0; i < NA; i++) {
+    for (let j = 0; j < NX; j++) {
+      const m = structuralOnly('mess3', { a: aVals[i], x: xVals[j] });
+      mu[i][j]     = m.mu;
+      hTotal[i][j] = m.h_total;
+    }
+  }
+  return { aVals, xVals, mu, hTotal };
+})();
+
+const FERN_GRID = (() => {
+  const xVals = [];
+  const NX = 41;
+  for (let j = 0; j < NX; j++) xVals.push(j * (1.0 - 0.0) / (NX - 1));
+  const mu = new Array(NX);
+  const hTotal = new Array(NX);
+  for (let j = 0; j < NX; j++) {
+    const m = structuralOnly('fern', { x: xVals[j] });
+    mu[j] = m.mu;
+    hTotal[j] = m.h_total;
+  }
+  return { xVals, mu, hTotal };
+})();
+
+function renderParamGrid(proc, params) {
+  if (proc === 'mess3') {
+    DOM.paramGridPlot.classList.remove('hidden');
+    plotMess3Grid(params);
+  } else if (proc === 'fern') {
+    DOM.paramGridPlot.classList.remove('hidden');
+    plotFernGrid(params);
+  } else {
+    DOM.paramGridPlot.classList.add('hidden');
+  }
+}
+
+function plotMess3Grid(params) {
+  const { aVals, xVals, mu, hTotal } = MESS3_GRID;
+
+  const muHeat = {
+    z: mu, x: xVals, y: aVals,
+    type: 'heatmap',
+    colorscale: 'YlOrRd',
+    reversescale: false,
+    colorbar: {
+      title: { text: '\u03bc', font: { color: TICK_COL, size: 11 } },
+      thickness: 10, len: 0.85, x: 0.45, xanchor: 'left',
+      tickfont: { color: TICK_COL, size: 9 },
+      bgcolor: 'rgba(0,0,0,0)',
+      tickformat: '.2f',
+    },
+    hovertemplate: 'a=%{y:.2f}, x=%{x:.2f}<br>\u03bc=%{z:.3f}<extra></extra>',
+    xaxis: 'x', yaxis: 'y',
+  };
+  const hHeat = {
+    z: hTotal, x: xVals, y: aVals,
+    type: 'heatmap',
+    colorscale: 'Viridis',
+    colorbar: {
+      title: { text: 'h\u2009total', font: { color: TICK_COL, size: 11 } },
+      thickness: 10, len: 0.85, x: 1.0, xanchor: 'left',
+      tickfont: { color: TICK_COL, size: 9 },
+      bgcolor: 'rgba(0,0,0,0)',
+      tickformat: '.2f',
+    },
+    hovertemplate: 'a=%{y:.2f}, x=%{x:.2f}<br>h_total=%{z:.3f}<extra></extra>',
+    xaxis: 'x2', yaxis: 'y2',
+  };
+
+  const a0 = params.a ?? 0.6;
+  const x0 = params.x ?? 0.15;
+  const markerColor = '#ddb070';
+  const markerLine  = { color: '#08090c', width: 2 };
+  const markerL = {
+    x: [x0], y: [a0], type: 'scatter', mode: 'markers',
+    marker: { color: markerColor, size: 11, symbol: 'circle', line: markerLine },
+    showlegend: false, hoverinfo: 'skip',
+    xaxis: 'x', yaxis: 'y',
+  };
+  const markerR = {
+    x: [x0], y: [a0], type: 'scatter', mode: 'markers',
+    marker: { color: markerColor, size: 11, symbol: 'circle', line: markerLine },
+    showlegend: false, hoverinfo: 'skip',
+    xaxis: 'x2', yaxis: 'y2',
+  };
+
+  const axisStyle = {
+    color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+    tickfont: { size: 9, color: TICK_COL },
+  };
+
+  const layout = {
+    title: {
+      text: 'MESS3 structural sweep  \u00b7  \u03bc(a,x)  &  h_total(a,x)  \u00b7  marker = current',
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
+    },
+    grid: { rows: 1, columns: 2, pattern: 'independent' },
+    xaxis:  { ...axisStyle, domain: [0.0, 0.42], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
+    yaxis:  { ...axisStyle, domain: [0.0, 1.0], title: { text: 'a', font: { size: 11, color: TEXT_COL } } },
+    xaxis2: { ...axisStyle, domain: [0.55, 0.97], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
+    yaxis2: { ...axisStyle, domain: [0.0, 1.0], anchor: 'x2', title: { text: 'a', font: { size: 11, color: TEXT_COL } } },
+    paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+    margin: { t: 32, b: 42, l: 42, r: 10 },
+    showlegend: false,
+    autosize: true,
+  };
+
+  Plotly.react('param-grid-plot', [muHeat, hHeat, markerL, markerR], layout, plotConfig());
+}
+
+function plotFernGrid(params) {
+  const { xVals, mu, hTotal } = FERN_GRID;
+  const x0 = params.x ?? 0.5;
+
+  // Find current values via interpolation on the grid (cheap: re-evaluate)
+  const cur = structuralOnly('fern', { x: x0 });
+
+  const muLine = {
+    x: xVals, y: mu, type: 'scatter', mode: 'lines',
+    line: { color: '#c9944a', width: 2, dash: 'dash' },
+    name: '\u03bc',
+    hovertemplate: 'x=%{x:.3f}<br>\u03bc=%{y:.4f}<extra></extra>',
+  };
+  const hLine = {
+    x: xVals, y: hTotal, type: 'scatter', mode: 'lines',
+    line: { color: '#5b9a8b', width: 2 },
+    name: 'h_total',
+    hovertemplate: 'x=%{x:.3f}<br>h_total=%{y:.4f}<extra></extra>',
+  };
+  const muMark = {
+    x: [x0], y: [cur.mu], type: 'scatter', mode: 'markers',
+    marker: { color: '#ddb070', size: 10, line: { color: '#08090c', width: 2 } },
+    showlegend: false, hoverinfo: 'skip',
+  };
+  const hMark = {
+    x: [x0], y: [cur.h_total], type: 'scatter', mode: 'markers',
+    marker: { color: '#8bba7f', size: 10, line: { color: '#08090c', width: 2 } },
+    showlegend: false, hoverinfo: 'skip',
+  };
+
+  const layout = {
+    title: {
+      text: 'FERN structural sweep  \u00b7  \u03bc is x-independent; only h_total varies',
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
+    },
+    xaxis: {
+      title: { text: 'x', font: { size: 11, color: TEXT_COL } },
+      color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+      tickfont: { size: 10, color: TICK_COL }, range: [-0.02, 1.02],
+    },
+    yaxis: {
+      title: { text: 'value', font: { size: 11, color: TEXT_COL } },
+      color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+      tickfont: { size: 10, color: TICK_COL },
+    },
+    paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+    margin: { t: 32, b: 48, l: 50, r: 16 },
+    legend: {
+      font: { color: TEXT_COL, size: 10 }, bgcolor: 'rgba(0,0,0,0)',
+      orientation: 'h', x: 0.75, y: 1.0,
+    },
+    autosize: true,
+  };
+
+  Plotly.react('param-grid-plot', [muLine, hLine, muMark, hMark], layout, plotConfig());
 }

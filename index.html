@@ -130,6 +130,53 @@
       </div>
     </div>
 
+    <!-- Structural metrics: mixing rate & entropy -->
+    <div class="section structural-section" id="structural-section">
+      <div class="section-label">
+        Structural metrics
+        <span class="muted">&middot; Dai et&nbsp;al. axes</span>
+      </div>
+      <div class="metrics-grid" id="metrics-grid">
+        <div class="metric-row">
+          <span class="metric-label">&mu; = |&lambda;<sub>2</sub>|</span>
+          <span class="metric-val highlight" id="metric-mu">&mdash;</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">&lambda;<sub>2</sub> (raw)</span>
+          <span class="metric-val" id="metric-lambda2">&mdash;</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">&pi;</span>
+          <span class="metric-val" id="metric-pi">&mdash;</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">H(A)</span>
+          <span class="metric-val" id="metric-HA">&mdash; <span class="metric-unit">bits</span></span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">H(B, &pi;)</span>
+          <span class="metric-val" id="metric-HB">&mdash; <span class="metric-unit">bits</span></span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">h&#771;<sub>A</sub></span>
+          <span class="metric-val" id="metric-hA">&mdash;</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">h&#771;<sub>B</sub></span>
+          <span class="metric-val" id="metric-hB">&mdash;</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">h<sub>total</sub></span>
+          <span class="metric-val highlight" id="metric-htot">&mdash;</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">1 / (1 &minus; &mu;)</span>
+          <span class="metric-val" id="metric-mixtime">&mdash; <span class="metric-unit">steps</span></span>
+        </div>
+      </div>
+      <div class="metrics-note hidden" id="metrics-note"></div>
+    </div>
+
     <!-- Description -->
     <div class="description" id="description"></div>
 
@@ -166,6 +213,7 @@
       <div id="cantor-plot" class="plot-container cantor-container hidden"></div>
       <div id="obs-prob-plot" class="plot-container obs-prob-container hidden"></div>
       <div id="log-obs-prob-plot" class="plot-container log-obs-prob-container hidden"></div>
+      <div id="param-grid-plot" class="plot-container param-grid-container hidden"></div>
     </div>
 
     <!-- Empty state -->
@@ -178,7 +226,7 @@
   </main>
 
 </div>
-<script src="compute.js"></script>
-<script src="app.js"></script>
+<script src="compute.js?v=2"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>
