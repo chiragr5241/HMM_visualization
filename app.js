@@ -743,8 +743,8 @@ function renderStructuralPanel(metrics, proc) {
   DOM.mMu.textContent       = fmtFixed(metrics.mu, 4);
   DOM.mLambda2.textContent  = fmtComplex(metrics.lambda2_raw, 3);
   DOM.mPi.textContent       = '(' + metrics.pi.map(p => p.toFixed(3)).join(', ') + ')';
-  DOM.mHA.innerHTML         = fmtFixed(metrics.H_A, 4) + ' <span class="metric-unit">bits</span>';
-  DOM.mHB.innerHTML         = fmtFixed(metrics.H_B, 4) + ' <span class="metric-unit">bits</span>';
+  DOM.mHA.innerHTML         = fmtFixed(metrics.H_A, 4) + ' <span class="metric-unit">nats</span>';
+  DOM.mHB.innerHTML         = fmtFixed(metrics.H_B, 4) + ' <span class="metric-unit">nats</span>';
   DOM.mhA.textContent       = fmtFixed(metrics.h_A_tilde, 4);
   DOM.mhB.textContent       = fmtFixed(metrics.h_B_tilde, 4);
   DOM.mhTot.textContent     = fmtFixed(metrics.h_total, 4);

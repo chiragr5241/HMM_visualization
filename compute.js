@@ -237,27 +237,28 @@ function formatComplex(z, digits = 3) {
   return `${z.re.toFixed(digits)} ${sign} ${Math.abs(z.im).toFixed(digits)}i`;
 }
 
-function xlog2x(p) {
-  return p > 0 ? p * Math.log2(p) : 0;
+function xlogx(p) {
+  // Natural log, paper uses nats: matches Dai et al. arxiv:2506.07298.
+  return p > 0 ? p * Math.log(p) : 0;
 }
 
-function transitionEntropyBits(A, pi) {
-  // H(A) = − Σ_i π_i Σ_j A[i,j] log₂ A[i,j]
+function transitionEntropyNats(A, pi) {
+  // H(A) = − Σ_{i,j} π_i A[i,j] ln A[i,j]   (paper convention, nats)
   let H = 0;
   for (let i = 0; i < A.length; i++) {
     let rowH = 0;
-    for (let j = 0; j < A[i].length; j++) rowH -= xlog2x(A[i][j]);
+    for (let j = 0; j < A[i].length; j++) rowH -= xlogx(A[i][j]);
     H += pi[i] * rowH;
   }
   return H;
 }
 
-function emissionEntropyBits(B, pi) {
-  // H(B, μ) = − Σ_i π_i Σ_o B[i,o] log₂ B[i,o]
+function emissionEntropyNats(B, pi) {
+  // H(B, μ) = − Σ_{j,l} π_j B[j,l] ln B[j,l]   (paper convention, nats)
   let H = 0;
   for (let i = 0; i < B.length; i++) {
     let rowH = 0;
-    for (let o = 0; o < B[i].length; o++) rowH -= xlog2x(B[i][o]);
+    for (let o = 0; o < B[i].length; o++) rowH -= xlogx(B[i][o]);
     H += pi[i] * rowH;
   }
   return H;
@@ -281,12 +282,12 @@ function computeStructuralMetrics(T, pi, isGHMM) {
   const mu = Math.hypot(lambda2_raw.re, lambda2_raw.im);
 
   const numSymbols = T.length;
-  const H_A = transitionEntropyBits(Ap, pi);
-  const H_B = emissionEntropyBits(B, pi);
-  const log2M = Math.log2(n);
-  const log2L = Math.log2(numSymbols);
-  const h_A_tilde = log2M > 0 ? H_A / log2M : 0;
-  const h_B_tilde = log2L > 0 ? H_B / log2L : 0;
+  const H_A = transitionEntropyNats(Ap, pi);
+  const H_B = emissionEntropyNats(B, pi);
+  const lnM = Math.log(n);
+  const lnL = Math.log(numSymbols);
+  const h_A_tilde = lnM > 0 ? H_A / lnM : 0;
+  const h_B_tilde = lnL > 0 ? H_B / lnL : 0;
   const h_total = h_A_tilde + h_B_tilde;
   const mixingTime = mu < 1 - 1e-12 ? 1 / (1 - mu) : Infinity;
 
