@@ -12,8 +12,8 @@ const PROCESSES = {
     states: 3,
     symbols: 3,
     params: [
-      { id: 'x', label: 'x', min: 0.01, max: 0.49, step: 0.01, default: 0.15 },
-      { id: 'a', label: 'a', min: 0.01, max: 0.99, step: 0.01, default: 0.6  },
+      { id: 'x', label: 'x', min: 0.001, max: 0.499, step: 0.001, default: 0.15 },
+      { id: 'a', label: 'a', min: 0.001, max: 0.999, step: 0.001, default: 0.6  },
     ],
     description: `
       <strong>MESS3</strong> is a 3-state, 3-symbol HMM with <strong>\u2124\u2083 symmetry</strong>.
@@ -34,11 +34,11 @@ const PROCESSES = {
     states: 3,
     symbols: 2,
     params: [
-      { id: 'x', label: 'x', min: 0.01, max: 0.49, step: 0.01, default: 0.15 },
-      { id: 'a', label: 'a', min: 0.1,  max: 0.99, step: 0.01, default: 0.6  },
-      { id: 'p', label: 'p', min: 0.01, max: 0.99, step: 0.01, default: 0.7  },
-      { id: 'q', label: 'q', min: 0.01, max: 0.99, step: 0.01, default: 0.3  },
-      { id: 'r', label: 'r', min: 0.01, max: 0.99, step: 0.01, default: 0.5  },
+      { id: 'x', label: 'x', min: 0.001, max: 0.499, step: 0.001, default: 0.15 },
+      { id: 'a', label: 'a', min: 0.001, max: 0.999, step: 0.001, default: 0.6  },
+      { id: 'p', label: 'p', min: 0.001, max: 0.999, step: 0.001, default: 0.7  },
+      { id: 'q', label: 'q', min: 0.001, max: 0.999, step: 0.001, default: 0.3  },
+      { id: 'r', label: 'r', min: 0.001, max: 0.999, step: 0.001, default: 0.5  },
     ],
     description: `
       <strong>MESS3-2</strong> collapses MESS3's 3 emissions into 2 via weighted mixing.
@@ -173,6 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
     obsProbPlot:   $('obs-prob-plot'),
     logObsProbPlot:$('log-obs-prob-plot'),
     paramGridPlot: $('param-grid-plot'),
+    paramGridWrap: $('param-grid-wrapper'),
+    gridScaleTog:  $('grid-scale-toggle'),
     structuralSec: $('structural-section'),
     metricsGrid:   $('metrics-grid'),
     metricsNote:   $('metrics-note'),
@@ -234,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateNodeEstimate();
   });
 
+  setupGridScaleToggle();
   selectProcess('mess3', true);
 });
 
@@ -279,14 +282,18 @@ function renderParams(cfg) {
     return;
   }
 
+  const decsFor = (p) => p.step < 0.01 ? 3 : (p.step < 0.1 ? 2 : (p.step < 10 ? 1 : 0));
+
   DOM.paramSec.style.display = 'block';
   DOM.paramList.innerHTML = cfg.params.map(p => {
-    const decs = p.step < 0.1 ? 2 : (p.step < 10 ? 1 : 0);
+    const decs = decsFor(p);
     return `
       <div class="param-row">
         <div class="param-header">
           <label class="param-label">${p.label}</label>
-          <span class="param-val" id="val-${p.id}">${p.default.toFixed(decs)}</span>
+          <input type="number" class="param-val param-num" id="val-${p.id}"
+                 min="${p.min}" max="${p.max}" step="${p.step}"
+                 value="${p.default.toFixed(decs)}" />
         </div>
         <div class="slider-row">
           <span class="slider-bound">${p.min}</span>
@@ -299,12 +306,31 @@ function renderParams(cfg) {
   }).join('');
 
   cfg.params.forEach(p => {
-    const sl  = $(`slider-${p.id}`);
-    const vEl = $(`val-${p.id}`);
-    const decs = p.step < 0.1 ? 2 : (p.step < 10 ? 1 : 0);
+    const sl   = $(`slider-${p.id}`);
+    const vEl  = $(`val-${p.id}`);
+    const decs = decsFor(p);
+    const clamp = (v) => Math.min(p.max, Math.max(p.min, v));
+
     sl.addEventListener('input', () => {
-      vEl.textContent = parseFloat(sl.value).toFixed(decs);
+      vEl.value = parseFloat(sl.value).toFixed(decs);
       scheduleAutoCompute();
+    });
+    vEl.addEventListener('input', () => {
+      const v = parseFloat(vEl.value);
+      if (Number.isFinite(v)) {
+        sl.value = clamp(v);
+        scheduleAutoCompute();
+      }
+    });
+    vEl.addEventListener('change', () => {
+      const v = parseFloat(vEl.value);
+      if (!Number.isFinite(v)) {
+        vEl.value = parseFloat(sl.value).toFixed(decs);
+        return;
+      }
+      const c = clamp(v);
+      sl.value = c;
+      vEl.value = c.toFixed(decs);
     });
   });
 }
@@ -789,16 +815,36 @@ const FERN_GRID = (() => {
   return { xVals, mu, hTotal };
 })();
 
+let entropyScale = 'linear';  // 'linear' | 'log'
+
 function renderParamGrid(proc, params) {
   if (proc === 'mess3') {
-    DOM.paramGridPlot.classList.remove('hidden');
+    DOM.paramGridWrap.classList.remove('hidden');
+    DOM.gridScaleTog.classList.remove('hidden');
     plotMess3Grid(params);
   } else if (proc === 'fern') {
-    DOM.paramGridPlot.classList.remove('hidden');
+    DOM.paramGridWrap.classList.remove('hidden');
+    DOM.gridScaleTog.classList.remove('hidden');
     plotFernGrid(params);
   } else {
-    DOM.paramGridPlot.classList.add('hidden');
+    DOM.paramGridWrap.classList.add('hidden');
   }
+}
+
+function setupGridScaleToggle() {
+  if (!DOM.gridScaleTog) return;
+  DOM.gridScaleTog.querySelectorAll('.scale-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const scale = btn.dataset.scale;
+      if (scale === entropyScale) return;
+      entropyScale = scale;
+      DOM.gridScaleTog.querySelectorAll('.scale-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.scale === scale));
+      const params = getParams();
+      if (currentProcess === 'mess3') plotMess3Grid(params);
+      else if (currentProcess === 'fern') plotFernGrid(params);
+    });
+  });
 }
 
 function plotMess3Grid(params) {
@@ -819,18 +865,26 @@ function plotMess3Grid(params) {
     hovertemplate: 'a=%{y:.2f}, x=%{x:.2f}<br>\u03bc=%{z:.3f}<extra></extra>',
     xaxis: 'x', yaxis: 'y',
   };
+  const isLog = entropyScale === 'log';
+  const hZ = isLog
+    ? hTotal.map(row => row.map(v => v > 0 ? Math.log10(v) : null))
+    : hTotal;
   const hHeat = {
-    z: hTotal, x: xVals, y: aVals,
+    z: hZ, x: xVals, y: aVals,
+    customdata: hTotal,
     type: 'heatmap',
     colorscale: 'Viridis',
     colorbar: {
-      title: { text: 'h\u2009total', font: { color: TICK_COL, size: 11 } },
+      title: {
+        text: isLog ? 'log\u2081\u2080 h\u2009total' : 'h\u2009total',
+        font: { color: TICK_COL, size: 11 },
+      },
       thickness: 10, len: 0.85, x: 1.0, xanchor: 'left',
       tickfont: { color: TICK_COL, size: 9 },
       bgcolor: 'rgba(0,0,0,0)',
       tickformat: '.2f',
     },
-    hovertemplate: 'a=%{y:.2f}, x=%{x:.2f}<br>h_total=%{z:.3f}<extra></extra>',
+    hovertemplate: 'a=%{y:.2f}, x=%{x:.2f}<br>h_total=%{customdata:.3f}<extra></extra>',
     xaxis: 'x2', yaxis: 'y2',
   };
 
@@ -916,9 +970,10 @@ function plotFernGrid(params) {
       tickfont: { size: 10, color: TICK_COL }, range: [-0.02, 1.02],
     },
     yaxis: {
-      title: { text: 'value', font: { size: 11, color: TEXT_COL } },
+      title: { text: entropyScale === 'log' ? 'value (log scale)' : 'value', font: { size: 11, color: TEXT_COL } },
       color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
       tickfont: { size: 10, color: TICK_COL },
+      type: entropyScale === 'log' ? 'log' : 'linear',
     },
     paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
     margin: { t: 32, b: 48, l: 50, r: 16 },

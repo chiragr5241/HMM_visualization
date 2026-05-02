@@ -251,6 +251,22 @@ h1 {
   font-variant-numeric: tabular-nums;
 }
 
+input.param-num {
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  border-radius: 3px;
+  padding: 2px 6px;
+  width: 72px;
+  outline: none;
+}
+input.param-num:focus {
+  border-color: var(--accent-hi);
+}
+input.param-num::-webkit-outer-spin-button,
+input.param-num::-webkit-inner-spin-button {
+  opacity: 0.4;
+}
+
 .slider-row {
   display: flex;
   align-items: center;
@@ -499,9 +515,48 @@ h1 {
 .structural-section.unsupported .metrics-grid { display: none; }
 
 .param-grid-container {
-  flex: 0 0 260px !important;
+  flex: 1 1 auto !important;
+  min-height: 0;
+}
+
+.param-grid-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 290px;
   min-height: 0;
   border-top: 1px solid var(--border);
+}
+.param-grid-wrapper.hidden { display: none; }
+
+.grid-scale-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 0 14px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+.grid-scale-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.scale-btn {
+  background: transparent;
+  border: 1px solid var(--border-hi);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 9px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.scale-btn:hover { color: var(--text); }
+.scale-btn.active {
+  background: var(--accent-hi);
+  color: var(--bg);
+  border-color: var(--accent-hi);
 }
 
 /* ── Description ─────────────────────────────────────────────────── */
