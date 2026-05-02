@@ -522,7 +522,7 @@ input.param-num::-webkit-inner-spin-button {
 .param-grid-wrapper {
   display: flex;
   flex-direction: column;
-  flex: 0 0 290px;
+  flex: 0 0 240px;
   min-height: 0;
   border-top: 1px solid var(--border);
 }
@@ -658,7 +658,7 @@ input.param-num::-webkit-inner-spin-button {
 
 #main-plot {
   flex: 1 1 auto;
-  min-height: 380px;
+  min-height: 300px;
 }
 
 .cantor-container {
@@ -669,7 +669,7 @@ input.param-num::-webkit-inner-spin-button {
 
 .obs-prob-container,
 .log-obs-prob-container {
-  flex: 0 0 120px !important;
+  flex: 0 0 96px !important;
   min-height: 0;
   border-top: 1px solid var(--border);
 }

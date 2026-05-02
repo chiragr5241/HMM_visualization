@@ -807,7 +807,7 @@ function renderStructuralPanel(metrics, proc) {
 const MESS3_GRID = (() => {
   const aVals = [];
   const xVals = [];
-  const NA = 21, NX = 21;
+  const NA = 99, NX = 49;
   for (let i = 0; i < NA; i++) aVals.push(0.01 + i * (0.99 - 0.01) / (NA - 1));
   for (let j = 0; j < NX; j++) xVals.push(0.01 + j * (0.49 - 0.01) / (NX - 1));
   // Build μ and h_total grids: rows indexed by a, columns by x.
@@ -826,7 +826,7 @@ const MESS3_GRID = (() => {
 const WING_GRID = (() => {
   const xVals = [];
   const yVals = [];
-  const NX = 21, NY = 21;
+  const NX = 99, NY = 99;
   // Avoid x=1, y=0, y=1 boundaries where the chain may degenerate.
   for (let j = 0; j < NX; j++) xVals.push(0.01 + j * (0.99 - 0.01) / (NX - 1));
   for (let i = 0; i < NY; i++) yVals.push(0.01 + i * (0.99 - 0.01) / (NY - 1));
