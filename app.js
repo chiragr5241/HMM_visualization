@@ -112,6 +112,28 @@ const PROCESSES = {
     `,
   },
 
+  wing: {
+    label: 'WING',
+    type: 'simplex',
+    states: 3,
+    symbols: 2,
+    params: [
+      { id: 'x', label: 'x', min: 0.001, max: 0.999, step: 0.001, default: 0.99 },
+      { id: 'y', label: 'y', min: 0.001, max: 0.999, step: 0.001, default: 0.4  },
+    ],
+    description: `
+      <strong>WING</strong> is a 3-state, 2-symbol HMM. Parameter <em>x</em> controls the
+      diagonal persistence of the transition tensor; <em>y</em> shifts probability mass
+      between the two emissions inside the middle state.
+      <br><br>
+      Belief states form a wing-like fan emanating from one corner of the 2-simplex,
+      with finer striations as <em>x</em> grows.
+      <br><br>
+      <span class="tag">3 states</span> <span class="tag">2 symbols</span>
+      <span class="tag">HMM</span> <span class="tag">2-simplex</span>
+    `,
+  },
+
   fanizza: {
     label: 'FANIZZA',
     type: 'pca',
@@ -801,6 +823,26 @@ const MESS3_GRID = (() => {
   return { aVals, xVals, mu, hTotal };
 })();
 
+const WING_GRID = (() => {
+  const xVals = [];
+  const yVals = [];
+  const NX = 21, NY = 21;
+  // Avoid x=1, y=0, y=1 boundaries where the chain may degenerate.
+  for (let j = 0; j < NX; j++) xVals.push(0.01 + j * (0.99 - 0.01) / (NX - 1));
+  for (let i = 0; i < NY; i++) yVals.push(0.01 + i * (0.99 - 0.01) / (NY - 1));
+  // Rows = y, columns = x.
+  const mu     = Array.from({ length: NY }, () => new Array(NX));
+  const hTotal = Array.from({ length: NY }, () => new Array(NX));
+  for (let i = 0; i < NY; i++) {
+    for (let j = 0; j < NX; j++) {
+      const m = structuralOnly('wing', { x: xVals[j], y: yVals[i] });
+      mu[i][j]     = m ? m.mu : NaN;
+      hTotal[i][j] = m ? m.h_total : NaN;
+    }
+  }
+  return { xVals, yVals, mu, hTotal };
+})();
+
 const FERN_GRID = (() => {
   const xVals = [];
   const NX = 41;
@@ -826,6 +868,10 @@ function renderParamGrid(proc, params) {
     DOM.paramGridWrap.classList.remove('hidden');
     DOM.gridScaleTog.classList.remove('hidden');
     plotFernGrid(params);
+  } else if (proc === 'wing') {
+    DOM.paramGridWrap.classList.remove('hidden');
+    DOM.gridScaleTog.classList.remove('hidden');
+    plotWingGrid(params);
   } else {
     DOM.paramGridWrap.classList.add('hidden');
   }
@@ -843,6 +889,7 @@ function setupGridScaleToggle() {
       const params = getParams();
       if (currentProcess === 'mess3') plotMess3Grid(params);
       else if (currentProcess === 'fern') plotFernGrid(params);
+      else if (currentProcess === 'wing') plotWingGrid(params);
     });
   });
 }
@@ -914,6 +961,79 @@ function plotMess3Grid(params) {
     yaxis:  { ...axisStyle, type: axType, domain: [0.0, 1.0], title: { text: 'a', font: { size: 11, color: TEXT_COL } } },
     xaxis2: { ...axisStyle, type: axType, domain: [0.55, 0.97], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
     yaxis2: { ...axisStyle, type: axType, domain: [0.0, 1.0], anchor: 'x2', title: { text: 'a', font: { size: 11, color: TEXT_COL } } },
+    paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+    margin: { t: 32, b: 42, l: 42, r: 10 },
+    showlegend: false,
+    autosize: true,
+  };
+
+  Plotly.react('param-grid-plot', [muHeat, hHeat, markerL, markerR], layout, plotConfig());
+}
+
+function plotWingGrid(params) {
+  const { xVals, yVals, mu, hTotal } = WING_GRID;
+
+  const muHeat = {
+    z: mu, x: xVals, y: yVals,
+    type: 'heatmap',
+    colorscale: 'YlOrRd',
+    colorbar: {
+      title: { text: 'μ', font: { color: TICK_COL, size: 11 } },
+      thickness: 10, len: 0.85, x: 0.45, xanchor: 'left',
+      tickfont: { color: TICK_COL, size: 9 },
+      bgcolor: 'rgba(0,0,0,0)',
+      tickformat: '.2f',
+    },
+    hovertemplate: 'y=%{y:.3f}, x=%{x:.3f}<br>μ=%{z:.3f}<extra></extra>',
+    xaxis: 'x', yaxis: 'y',
+  };
+  const hHeat = {
+    z: hTotal, x: xVals, y: yVals,
+    type: 'heatmap',
+    colorscale: 'Viridis',
+    colorbar: {
+      title: { text: 'h total', font: { color: TICK_COL, size: 11 } },
+      thickness: 10, len: 0.85, x: 1.0, xanchor: 'left',
+      tickfont: { color: TICK_COL, size: 9 },
+      bgcolor: 'rgba(0,0,0,0)',
+      tickformat: '.2f',
+    },
+    hovertemplate: 'y=%{y:.3f}, x=%{x:.3f}<br>h_total=%{z:.3f}<extra></extra>',
+    xaxis: 'x2', yaxis: 'y2',
+  };
+
+  const x0 = params.x ?? 0.99;
+  const y0 = params.y ?? 0.4;
+  const markerColor = '#ddb070';
+  const markerLine  = { color: '#08090c', width: 2 };
+  const markerL = {
+    x: [x0], y: [y0], type: 'scatter', mode: 'markers',
+    marker: { color: markerColor, size: 11, symbol: 'circle', line: markerLine },
+    showlegend: false, hoverinfo: 'skip', xaxis: 'x', yaxis: 'y',
+  };
+  const markerR = {
+    x: [x0], y: [y0], type: 'scatter', mode: 'markers',
+    marker: { color: markerColor, size: 11, symbol: 'circle', line: markerLine },
+    showlegend: false, hoverinfo: 'skip', xaxis: 'x2', yaxis: 'y2',
+  };
+
+  const isLog = entropyScale === 'log';
+  const axType = isLog ? 'log' : 'linear';
+  const axisStyle = {
+    color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+    tickfont: { size: 9, color: TICK_COL },
+  };
+
+  const layout = {
+    title: {
+      text: `WING structural sweep  ·  μ(x,y)  &  h_total(x,y)  ·  marker = current${isLog ? '  ·  log axes' : ''}`,
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
+    },
+    grid: { rows: 1, columns: 2, pattern: 'independent' },
+    xaxis:  { ...axisStyle, type: axType, domain: [0.0, 0.42], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
+    yaxis:  { ...axisStyle, type: axType, domain: [0.0, 1.0], title: { text: 'y', font: { size: 11, color: TEXT_COL } } },
+    xaxis2: { ...axisStyle, type: axType, domain: [0.55, 0.97], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
+    yaxis2: { ...axisStyle, type: axType, domain: [0.0, 1.0], anchor: 'x2', title: { text: 'y', font: { size: 11, color: TEXT_COL } } },
     paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
     margin: { t: 32, b: 42, l: 42, r: 10 },
     showlegend: false,

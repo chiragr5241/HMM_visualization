@@ -406,6 +406,22 @@ function buildLeopard(x) {
   ];
 }
 
+function buildWing(x, y) {
+  const b = (1 - x) / 2;
+  return [
+    [
+      [0, b,           0      ],
+      [0, y * x,       0.5 * b],
+      [b, 0,           0      ],
+    ],
+    [
+      [x, 0,           b      ],
+      [b, (1 - y) * x, 0.5 * b],
+      [0, b,           x      ],
+    ],
+  ];
+}
+
 function buildFern(x) {
   return [
     [[0.3942, 0.00512, 0.0381], [0.0, 0.53, 0.0], [0.0, 0.326 * x, 0.554]],
@@ -517,6 +533,8 @@ function buildModel(process, params) {
       return initializeModel(buildLeopard(p.x ?? 0.5), false);
     case 'fern':
       return initializeModel(buildFern(p.x ?? 0.5), false);
+    case 'wing':
+      return initializeModel(buildWing(p.x ?? 0.99, p.y ?? 0.4), false);
     case 'fanizza': {
       const { T, isGHMM } = buildFanizza(p.alpha ?? 2000.0, p.lamb ?? 0.49);
       return initializeModel(T, isGHMM);
@@ -799,6 +817,7 @@ function structuralOnly(process, params) {
       case 'river':   return buildRiver();
       case 'leopard': return buildLeopard(params.x);
       case 'fern':    return buildFern(params.x);
+      case 'wing':    return buildWing(params.x, params.y);
       default: return null;
     }
   })();

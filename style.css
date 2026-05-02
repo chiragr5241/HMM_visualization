@@ -532,10 +532,13 @@ input.param-num::-webkit-inner-spin-button {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px 0 14px;
+  padding: 8px 14px;
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--faint);
+  background: var(--card, rgba(255,255,255,0.02));
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .grid-scale-label {
   text-transform: uppercase;
@@ -645,11 +648,17 @@ input.param-num::-webkit-inner-spin-button {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
 }
 
 .plot-container {
   flex: 1;
   min-height: 0;
+}
+
+#main-plot {
+  flex: 1 1 auto;
+  min-height: 380px;
 }
 
 .cantor-container {
