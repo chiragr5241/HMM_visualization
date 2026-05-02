@@ -862,29 +862,21 @@ function plotMess3Grid(params) {
       bgcolor: 'rgba(0,0,0,0)',
       tickformat: '.2f',
     },
-    hovertemplate: 'a=%{y:.2f}, x=%{x:.2f}<br>\u03bc=%{z:.3f}<extra></extra>',
+    hovertemplate: 'a=%{y:.3f}, x=%{x:.3f}<br>\u03bc=%{z:.3f}<extra></extra>',
     xaxis: 'x', yaxis: 'y',
   };
-  const isLog = entropyScale === 'log';
-  const hZ = isLog
-    ? hTotal.map(row => row.map(v => v > 0 ? Math.log10(v) : null))
-    : hTotal;
   const hHeat = {
-    z: hZ, x: xVals, y: aVals,
-    customdata: hTotal,
+    z: hTotal, x: xVals, y: aVals,
     type: 'heatmap',
     colorscale: 'Viridis',
     colorbar: {
-      title: {
-        text: isLog ? 'log\u2081\u2080 h\u2009total' : 'h\u2009total',
-        font: { color: TICK_COL, size: 11 },
-      },
+      title: { text: 'h\u2009total', font: { color: TICK_COL, size: 11 } },
       thickness: 10, len: 0.85, x: 1.0, xanchor: 'left',
       tickfont: { color: TICK_COL, size: 9 },
       bgcolor: 'rgba(0,0,0,0)',
       tickformat: '.2f',
     },
-    hovertemplate: 'a=%{y:.2f}, x=%{x:.2f}<br>h_total=%{customdata:.3f}<extra></extra>',
+    hovertemplate: 'a=%{y:.3f}, x=%{x:.3f}<br>h_total=%{z:.3f}<extra></extra>',
     xaxis: 'x2', yaxis: 'y2',
   };
 
@@ -905,6 +897,8 @@ function plotMess3Grid(params) {
     xaxis: 'x2', yaxis: 'y2',
   };
 
+  const isLog = entropyScale === 'log';
+  const axType = isLog ? 'log' : 'linear';
   const axisStyle = {
     color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
     tickfont: { size: 9, color: TICK_COL },
@@ -912,14 +906,14 @@ function plotMess3Grid(params) {
 
   const layout = {
     title: {
-      text: 'MESS3 structural sweep  \u00b7  \u03bc(a,x)  &  h_total(a,x)  \u00b7  marker = current',
+      text: `MESS3 structural sweep  \u00b7  \u03bc(a,x)  &  h_total(a,x)  \u00b7  marker = current${isLog ? '  \u00b7  log axes' : ''}`,
       font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
     },
     grid: { rows: 1, columns: 2, pattern: 'independent' },
-    xaxis:  { ...axisStyle, domain: [0.0, 0.42], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
-    yaxis:  { ...axisStyle, domain: [0.0, 1.0], title: { text: 'a', font: { size: 11, color: TEXT_COL } } },
-    xaxis2: { ...axisStyle, domain: [0.55, 0.97], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
-    yaxis2: { ...axisStyle, domain: [0.0, 1.0], anchor: 'x2', title: { text: 'a', font: { size: 11, color: TEXT_COL } } },
+    xaxis:  { ...axisStyle, type: axType, domain: [0.0, 0.42], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
+    yaxis:  { ...axisStyle, type: axType, domain: [0.0, 1.0], title: { text: 'a', font: { size: 11, color: TEXT_COL } } },
+    xaxis2: { ...axisStyle, type: axType, domain: [0.55, 0.97], title: { text: 'x', font: { size: 11, color: TEXT_COL } } },
+    yaxis2: { ...axisStyle, type: axType, domain: [0.0, 1.0], anchor: 'x2', title: { text: 'a', font: { size: 11, color: TEXT_COL } } },
     paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
     margin: { t: 32, b: 42, l: 42, r: 10 },
     showlegend: false,
@@ -967,13 +961,14 @@ function plotFernGrid(params) {
     xaxis: {
       title: { text: 'x', font: { size: 11, color: TEXT_COL } },
       color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
-      tickfont: { size: 10, color: TICK_COL }, range: [-0.02, 1.02],
-    },
-    yaxis: {
-      title: { text: entropyScale === 'log' ? 'value (log scale)' : 'value', font: { size: 11, color: TEXT_COL } },
-      color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
       tickfont: { size: 10, color: TICK_COL },
       type: entropyScale === 'log' ? 'log' : 'linear',
+      ...(entropyScale === 'log' ? {} : { range: [-0.02, 1.02] }),
+    },
+    yaxis: {
+      title: { text: 'value', font: { size: 11, color: TEXT_COL } },
+      color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+      tickfont: { size: 10, color: TICK_COL },
     },
     paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
     margin: { t: 32, b: 48, l: 50, r: 16 },
