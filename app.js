@@ -13,7 +13,7 @@ const PROCESSES = {
     symbols: 3,
     params: [
       { id: 'x', label: 'x', min: 0.01, max: 0.49, step: 0.01, default: 0.15 },
-      { id: 'a', label: 'a', min: 0.1,  max: 0.99, step: 0.01, default: 0.6  },
+      { id: 'a', label: 'a', min: 0.01, max: 0.99, step: 0.01, default: 0.6  },
     ],
     description: `
       <strong>MESS3</strong> is a 3-state, 3-symbol HMM with <strong>\u2124\u2083 symmetry</strong>.
