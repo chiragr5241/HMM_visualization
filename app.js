@@ -112,6 +112,46 @@ const PROCESSES = {
     `,
   },
 
+  strata: {
+    label: 'STRATA',
+    type: 'simplex',
+    states: 3,
+    symbols: 2,
+    params: [
+      { id: 'a',  label: 'a',  min: 0.001, max: 0.999, step: 0.001, default: 0.5 },
+      { id: 't0', label: 't₀', min: 0.0,   max: 1.0,   step: 0.001, default: 0.5 },
+      { id: 't1', label: 't₁', min: 0.0,   max: 1.0,   step: 0.001, default: 0.5 },
+    ],
+    description: `
+      <strong>STRATA</strong> is a 3-state, 2-symbol HMM. Parameter <em>a</em> sets the
+      diagonal persistence; <em>t₀</em> and <em>t₁</em> independently bias the emission
+      split inside states 0 and 1.
+      <br><br>
+      <span class="tag">3 states</span> <span class="tag">2 symbols</span>
+      <span class="tag">HMM</span> <span class="tag">2-simplex</span>
+    `,
+  },
+
+  arch: {
+    label: 'ARCH',
+    type: 'pca',
+    states: 4,
+    symbols: 3,
+    params: [
+      { id: 'a', label: 'a', min: 0.001, max: 0.999, step: 0.001, default: 0.5 },
+    ],
+    description: `
+      <strong>ARCH</strong> is a 4-state, 3-symbol HMM. Belief states live on the
+      3-simplex (tetrahedron); the visualization projects them via PCA.
+      <br><br>
+      A single <em>a</em> controls the chain's persistence vs. mixing. The off-diagonal
+      mass is split uniformly with rate <em>(1 − a)/3</em>.
+      <br><br>
+      <span class="tag">4 states</span> <span class="tag">3 symbols</span>
+      <span class="tag">HMM</span> <span class="tag">PCA</span>
+    `,
+  },
+
   wing: {
     label: 'WING',
     type: 'simplex',

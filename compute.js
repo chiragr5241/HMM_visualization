@@ -406,6 +406,46 @@ function buildLeopard(x) {
   ];
 }
 
+function buildStrata(a, t0, t1) {
+  const b = (1 - a) / 2;
+  return [
+    [
+      [t0 * a, 0.0, 0.0],
+      [0.0, t1 * a, 0.0],
+      [0.0, 0.0, 0.0],
+    ],
+    [
+      [(1 - t0) * a, b, b],
+      [b, (1 - t1) * a, b],
+      [b, b, a],
+    ],
+  ];
+}
+
+function buildArch(a) {
+  const b = (1 - a) / 3;
+  return [
+    [
+      [0.8 * a, 0.0, 0.0, 0.0],
+      [0.0, 0.2 * a, 0.0, 0.0],
+      [0.0, 0.0, 0.4 * a, 0.0],
+      [0.0, 0.0, 0.0, 0.6 * a],
+    ],
+    [
+      [0.0, 0.0, 0.0, 0.0],
+      [0.0, 0.4 * a, 0.0, 0.4 * b],
+      [0.0, 0.0, 0.3 * a, 0.0],
+      [0.0, 0.0, 0.0, 0.16 * a],
+    ],
+    [
+      [0.2 * a, b, b, b],
+      [b, 0.4 * a, b, 0.6 * b],
+      [b, b, 0.3 * a, b],
+      [b, b, b, 0.24 * a],
+    ],
+  ];
+}
+
 function buildWing(x, y) {
   const b = (1 - x) / 2;
   return [
@@ -535,6 +575,10 @@ function buildModel(process, params) {
       return initializeModel(buildFern(p.x ?? 0.5), false);
     case 'wing':
       return initializeModel(buildWing(p.x ?? 0.99, p.y ?? 0.4), false);
+    case 'strata':
+      return initializeModel(buildStrata(p.a ?? 0.5, p.t0 ?? 0.5, p.t1 ?? 0.5), false);
+    case 'arch':
+      return initializeModel(buildArch(p.a ?? 0.5), false);
     case 'fanizza': {
       const { T, isGHMM } = buildFanizza(p.alpha ?? 2000.0, p.lamb ?? 0.49);
       return initializeModel(T, isGHMM);
@@ -797,10 +841,12 @@ function computeResult(process, params, mode, modeParams) {
   }
 
   let result;
-  if (isGHMM) {
-    result = formatPCA(beliefStates, model);
-  } else {
+  // 3-state HMMs render on the 2-simplex; everything else (GHMMs and
+  // HMMs with ≥4 states like ARCH) falls back to PCA projection.
+  if (!isGHMM && model.numStates === 3) {
     result = formatSimplex(beliefStates, model);
+  } else {
+    result = formatPCA(beliefStates, model);
   }
   result.mode = mode;
   result.metrics = metrics;
@@ -818,6 +864,8 @@ function structuralOnly(process, params) {
       case 'leopard': return buildLeopard(params.x);
       case 'fern':    return buildFern(params.x);
       case 'wing':    return buildWing(params.x, params.y);
+      case 'strata':  return buildStrata(params.a, params.t0, params.t1);
+      case 'arch':    return buildArch(params.a);
       default: return null;
     }
   })();
