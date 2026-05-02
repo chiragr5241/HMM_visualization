@@ -807,9 +807,9 @@ function renderStructuralPanel(metrics, proc) {
 const MESS3_GRID = (() => {
   const aVals = [];
   const xVals = [];
-  const NA = 99, NX = 49;
-  for (let i = 0; i < NA; i++) aVals.push(0.01 + i * (0.99 - 0.01) / (NA - 1));
-  for (let j = 0; j < NX; j++) xVals.push(0.01 + j * (0.49 - 0.01) / (NX - 1));
+  const NA = 99, NX = 50;
+  for (let i = 0; i < NA; i++) aVals.push(0.001 + i * (0.999 - 0.001) / (NA - 1));
+  for (let j = 0; j < NX; j++) xVals.push(0.001 + j * (0.499 - 0.001) / (NX - 1));
   // Build μ and h_total grids: rows indexed by a, columns by x.
   const mu      = Array.from({ length: NA }, () => new Array(NX));
   const hTotal  = Array.from({ length: NA }, () => new Array(NX));
@@ -827,9 +827,8 @@ const WING_GRID = (() => {
   const xVals = [];
   const yVals = [];
   const NX = 99, NY = 99;
-  // Avoid x=1, y=0, y=1 boundaries where the chain may degenerate.
-  for (let j = 0; j < NX; j++) xVals.push(0.01 + j * (0.99 - 0.01) / (NX - 1));
-  for (let i = 0; i < NY; i++) yVals.push(0.01 + i * (0.99 - 0.01) / (NY - 1));
+  for (let j = 0; j < NX; j++) xVals.push(0.001 + j * (0.999 - 0.001) / (NX - 1));
+  for (let i = 0; i < NY; i++) yVals.push(0.001 + i * (0.999 - 0.001) / (NY - 1));
   // Rows = y, columns = x.
   const mu     = Array.from({ length: NY }, () => new Array(NX));
   const hTotal = Array.from({ length: NY }, () => new Array(NX));
