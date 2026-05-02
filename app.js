@@ -760,7 +760,7 @@ const MESS3_GRID = (() => {
   const aVals = [];
   const xVals = [];
   const NA = 21, NX = 21;
-  for (let i = 0; i < NA; i++) aVals.push(0.10 + i * (0.99 - 0.10) / (NA - 1));
+  for (let i = 0; i < NA; i++) aVals.push(0.01 + i * (0.99 - 0.01) / (NA - 1));
   for (let j = 0; j < NX; j++) xVals.push(0.01 + j * (0.49 - 0.01) / (NX - 1));
   // Build μ and h_total grids: rows indexed by a, columns by x.
   const mu      = Array.from({ length: NA }, () => new Array(NX));
