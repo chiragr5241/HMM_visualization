@@ -911,6 +911,14 @@ function renderParamGrid(proc, params) {
     DOM.paramGridWrap.classList.remove('hidden');
     DOM.gridScaleTog.classList.remove('hidden');
     plotWingGrid(params);
+  } else if (proc === 'strata') {
+    DOM.paramGridWrap.classList.remove('hidden');
+    DOM.gridScaleTog.classList.remove('hidden');
+    plotStrataGrid(params);
+  } else if (proc === 'arch') {
+    DOM.paramGridWrap.classList.remove('hidden');
+    DOM.gridScaleTog.classList.remove('hidden');
+    plotArchGrid(params);
   } else {
     DOM.paramGridWrap.classList.add('hidden');
   }
@@ -929,6 +937,8 @@ function setupGridScaleToggle() {
       if (currentProcess === 'mess3') plotMess3Grid(params);
       else if (currentProcess === 'fern') plotFernGrid(params);
       else if (currentProcess === 'wing') plotWingGrid(params);
+      else if (currentProcess === 'strata') plotStrataGrid(params);
+      else if (currentProcess === 'arch') plotArchGrid(params);
     });
   });
 }
@@ -1123,6 +1133,151 @@ function plotFernGrid(params) {
       tickfont: { size: 10, color: TICK_COL },
       type: entropyScale === 'log' ? 'log' : 'linear',
       ...(entropyScale === 'log' ? {} : { range: [-0.02, 1.02] }),
+    },
+    yaxis: {
+      title: { text: 'value', font: { size: 11, color: TEXT_COL } },
+      color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+      tickfont: { size: 10, color: TICK_COL },
+    },
+    paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+    margin: { t: 32, b: 48, l: 50, r: 16 },
+    legend: {
+      font: { color: TEXT_COL, size: 10 }, bgcolor: 'rgba(0,0,0,0)',
+      orientation: 'h', x: 0.75, y: 1.0,
+    },
+    autosize: true,
+  };
+
+  Plotly.react('param-grid-plot', [muLine, hLine, muMark, hMark], layout, plotConfig());
+}
+
+// STRATA: 3 params (a, t0, t1). Heatmap in (t0, t1) for the current a slice.
+function plotStrataGrid(params) {
+  const a0  = params.a  ?? 0.5;
+  const t00 = params.t0 ?? 0.5;
+  const t10 = params.t1 ?? 0.5;
+
+  const N = 41;
+  const t0Vals = new Array(N);
+  const t1Vals = new Array(N);
+  for (let k = 0; k < N; k++) {
+    t0Vals[k] = k / (N - 1);
+    t1Vals[k] = k / (N - 1);
+  }
+  const mu     = Array.from({ length: N }, () => new Array(N));
+  const hTotal = Array.from({ length: N }, () => new Array(N));
+  for (let i = 0; i < N; i++) {
+    for (let j = 0; j < N; j++) {
+      const m = structuralOnly('strata', { a: a0, t0: t0Vals[j], t1: t1Vals[i] });
+      mu[i][j]     = m ? m.mu      : NaN;
+      hTotal[i][j] = m ? m.h_total : NaN;
+    }
+  }
+
+  const muHeat = {
+    z: mu, x: t0Vals, y: t1Vals, type: 'heatmap', colorscale: 'YlOrRd',
+    colorbar: {
+      title: { text: 'μ', font: { color: TICK_COL, size: 11 } },
+      thickness: 10, len: 0.85, x: 0.45, xanchor: 'left',
+      tickfont: { color: TICK_COL, size: 9 }, bgcolor: 'rgba(0,0,0,0)', tickformat: '.2f',
+    },
+    hovertemplate: 't₁=%{y:.3f}, t₀=%{x:.3f}<br>μ=%{z:.3f}<extra></extra>',
+    xaxis: 'x', yaxis: 'y',
+  };
+  const hHeat = {
+    z: hTotal, x: t0Vals, y: t1Vals, type: 'heatmap', colorscale: 'Viridis',
+    colorbar: {
+      title: { text: 'h total', font: { color: TICK_COL, size: 11 } },
+      thickness: 10, len: 0.85, x: 1.0, xanchor: 'left',
+      tickfont: { color: TICK_COL, size: 9 }, bgcolor: 'rgba(0,0,0,0)', tickformat: '.2f',
+    },
+    hovertemplate: 't₁=%{y:.3f}, t₀=%{x:.3f}<br>h_total=%{z:.3f}<extra></extra>',
+    xaxis: 'x2', yaxis: 'y2',
+  };
+
+  const markerColor = '#ddb070';
+  const markerLine  = { color: '#08090c', width: 2 };
+  const markerL = {
+    x: [t00], y: [t10], type: 'scatter', mode: 'markers',
+    marker: { color: markerColor, size: 11, symbol: 'circle', line: markerLine },
+    showlegend: false, hoverinfo: 'skip', xaxis: 'x', yaxis: 'y',
+  };
+  const markerR = { ...markerL, xaxis: 'x2', yaxis: 'y2' };
+
+  const isLog = entropyScale === 'log';
+  const axType = isLog ? 'log' : 'linear';
+  const axStyle = { color: TEXT_COL, gridcolor: GRID_COL, zeroline: false, tickfont: { size: 9, color: TICK_COL } };
+
+  const layout = {
+    title: {
+      text: `STRATA structural sweep  ·  μ(t₀,t₁) & h_total(t₀,t₁) at a=${a0.toFixed(3)}${isLog ? '  ·  log axes' : ''}`,
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
+    },
+    grid: { rows: 1, columns: 2, pattern: 'independent' },
+    xaxis:  { ...axStyle, type: axType, domain: [0.0, 0.42], title: { text: 't₀', font: { size: 11, color: TEXT_COL } } },
+    yaxis:  { ...axStyle, type: axType, domain: [0.0, 1.0],  title: { text: 't₁', font: { size: 11, color: TEXT_COL } } },
+    xaxis2: { ...axStyle, type: axType, domain: [0.55, 0.97], title: { text: 't₀', font: { size: 11, color: TEXT_COL } } },
+    yaxis2: { ...axStyle, type: axType, domain: [0.0, 1.0], anchor: 'x2', title: { text: 't₁', font: { size: 11, color: TEXT_COL } } },
+    paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+    margin: { t: 32, b: 42, l: 42, r: 10 }, showlegend: false, autosize: true,
+  };
+
+  Plotly.react('param-grid-plot', [muHeat, hHeat, markerL, markerR], layout, plotConfig());
+}
+
+// ARCH: 1 param (a). Line plot of μ(a) and h_total(a).
+const ARCH_GRID = (() => {
+  const N = 99;
+  const aVals = new Array(N);
+  const mu = new Array(N);
+  const hTotal = new Array(N);
+  for (let k = 0; k < N; k++) {
+    aVals[k] = 0.001 + k * (0.999 - 0.001) / (N - 1);
+    const m = structuralOnly('arch', { a: aVals[k] });
+    mu[k]     = m ? m.mu      : NaN;
+    hTotal[k] = m ? m.h_total : NaN;
+  }
+  return { aVals, mu, hTotal };
+})();
+
+function plotArchGrid(params) {
+  const { aVals, mu, hTotal } = ARCH_GRID;
+  const a0 = params.a ?? 0.5;
+  const cur = structuralOnly('arch', { a: a0 });
+
+  const muLine = {
+    x: aVals, y: mu, type: 'scatter', mode: 'lines',
+    line: { color: '#c9944a', width: 2, dash: 'dash' }, name: 'μ',
+    hovertemplate: 'a=%{x:.3f}<br>μ=%{y:.4f}<extra></extra>',
+  };
+  const hLine = {
+    x: aVals, y: hTotal, type: 'scatter', mode: 'lines',
+    line: { color: '#5b9a8b', width: 2 }, name: 'h_total',
+    hovertemplate: 'a=%{x:.3f}<br>h_total=%{y:.4f}<extra></extra>',
+  };
+  const muMark = {
+    x: [a0], y: [cur.mu], type: 'scatter', mode: 'markers',
+    marker: { color: '#ddb070', size: 10, line: { color: '#08090c', width: 2 } },
+    showlegend: false, hoverinfo: 'skip',
+  };
+  const hMark = {
+    x: [a0], y: [cur.h_total], type: 'scatter', mode: 'markers',
+    marker: { color: '#8bba7f', size: 10, line: { color: '#08090c', width: 2 } },
+    showlegend: false, hoverinfo: 'skip',
+  };
+
+  const isLog = entropyScale === 'log';
+  const layout = {
+    title: {
+      text: `ARCH structural sweep  ·  μ(a) & h_total(a)${isLog ? '  ·  log axis' : ''}`,
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
+    },
+    xaxis: {
+      title: { text: 'a', font: { size: 11, color: TEXT_COL } },
+      color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+      tickfont: { size: 10, color: TICK_COL },
+      type: isLog ? 'log' : 'linear',
+      ...(isLog ? {} : { range: [-0.02, 1.02] }),
     },
     yaxis: {
       title: { text: 'value', font: { size: 11, color: TEXT_COL } },
