@@ -132,6 +132,23 @@ const PROCESSES = {
     `,
   },
 
+  spiral: {
+    label: 'SPIRAL',
+    type: 'simplex',
+    states: 3,
+    symbols: 2,
+    params: [
+      { id: 'a', label: 'a', min: 0.001, max: 0.999, step: 0.001, default: 0.5 },
+    ],
+    description: `
+      <strong>SPIRAL</strong> is a 3-state, 2-symbol HMM with a single persistence
+      parameter <em>a</em>. Belief states trace spiral-like trajectories on the 2-simplex.
+      <br><br>
+      <span class="tag">3 states</span> <span class="tag">2 symbols</span>
+      <span class="tag">HMM</span> <span class="tag">2-simplex</span>
+    `,
+  },
+
   arch: {
     label: 'ARCH',
     type: 'pca',
@@ -919,6 +936,10 @@ function renderParamGrid(proc, params) {
     DOM.paramGridWrap.classList.remove('hidden');
     DOM.gridScaleTog.classList.remove('hidden');
     plotArchGrid(params);
+  } else if (proc === 'spiral') {
+    DOM.paramGridWrap.classList.remove('hidden');
+    DOM.gridScaleTog.classList.remove('hidden');
+    plotSpiralGrid(params);
   } else {
     DOM.paramGridWrap.classList.add('hidden');
   }
@@ -939,6 +960,7 @@ function setupGridScaleToggle() {
       else if (currentProcess === 'wing') plotWingGrid(params);
       else if (currentProcess === 'strata') plotStrataGrid(params);
       else if (currentProcess === 'arch') plotArchGrid(params);
+      else if (currentProcess === 'spiral') plotSpiralGrid(params);
     });
   });
 }
@@ -1270,6 +1292,77 @@ function plotArchGrid(params) {
   const layout = {
     title: {
       text: `ARCH structural sweep  ·  μ(a) & h_total(a)${isLog ? '  ·  log axis' : ''}`,
+      font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
+    },
+    xaxis: {
+      title: { text: 'a', font: { size: 11, color: TEXT_COL } },
+      color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+      tickfont: { size: 10, color: TICK_COL },
+      type: isLog ? 'log' : 'linear',
+      ...(isLog ? {} : { range: [-0.02, 1.02] }),
+    },
+    yaxis: {
+      title: { text: 'value', font: { size: 11, color: TEXT_COL } },
+      color: TEXT_COL, gridcolor: GRID_COL, zeroline: false,
+      tickfont: { size: 10, color: TICK_COL },
+    },
+    paper_bgcolor: BG, plot_bgcolor: PLOT_BG,
+    margin: { t: 32, b: 48, l: 50, r: 16 },
+    legend: {
+      font: { color: TEXT_COL, size: 10 }, bgcolor: 'rgba(0,0,0,0)',
+      orientation: 'h', x: 0.75, y: 1.0,
+    },
+    autosize: true,
+  };
+
+  Plotly.react('param-grid-plot', [muLine, hLine, muMark, hMark], layout, plotConfig());
+}
+
+// SPIRAL: 1 param (a). Same line-plot treatment as ARCH/FERN.
+const SPIRAL_GRID = (() => {
+  const N = 99;
+  const aVals = new Array(N);
+  const mu = new Array(N);
+  const hTotal = new Array(N);
+  for (let k = 0; k < N; k++) {
+    aVals[k] = 0.001 + k * (0.999 - 0.001) / (N - 1);
+    const m = structuralOnly('spiral', { a: aVals[k] });
+    mu[k]     = m ? m.mu      : NaN;
+    hTotal[k] = m ? m.h_total : NaN;
+  }
+  return { aVals, mu, hTotal };
+})();
+
+function plotSpiralGrid(params) {
+  const { aVals, mu, hTotal } = SPIRAL_GRID;
+  const a0 = params.a ?? 0.5;
+  const cur = structuralOnly('spiral', { a: a0 });
+
+  const muLine = {
+    x: aVals, y: mu, type: 'scatter', mode: 'lines',
+    line: { color: '#c9944a', width: 2, dash: 'dash' }, name: 'μ',
+    hovertemplate: 'a=%{x:.3f}<br>μ=%{y:.4f}<extra></extra>',
+  };
+  const hLine = {
+    x: aVals, y: hTotal, type: 'scatter', mode: 'lines',
+    line: { color: '#5b9a8b', width: 2 }, name: 'h_total',
+    hovertemplate: 'a=%{x:.3f}<br>h_total=%{y:.4f}<extra></extra>',
+  };
+  const muMark = {
+    x: [a0], y: [cur.mu], type: 'scatter', mode: 'markers',
+    marker: { color: '#ddb070', size: 10, line: { color: '#08090c', width: 2 } },
+    showlegend: false, hoverinfo: 'skip',
+  };
+  const hMark = {
+    x: [a0], y: [cur.h_total], type: 'scatter', mode: 'markers',
+    marker: { color: '#8bba7f', size: 10, line: { color: '#08090c', width: 2 } },
+    showlegend: false, hoverinfo: 'skip',
+  };
+
+  const isLog = entropyScale === 'log';
+  const layout = {
+    title: {
+      text: `SPIRAL structural sweep  ·  μ(a) & h_total(a)${isLog ? '  ·  log axis' : ''}`,
       font: { size: 11, color: '#8a8478' }, x: 0.02, xanchor: 'left',
     },
     xaxis: {

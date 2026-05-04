@@ -406,6 +406,21 @@ function buildLeopard(x) {
   ];
 }
 
+function buildSpiral(a) {
+  return [
+    [
+      [0.2 * a,         0,     0      ],
+      [0,               0,     0      ],
+      [0.25 * (1 - a),  0,     0.5 * a],
+    ],
+    [
+      [0.8 * a,         1 - a, 0      ],
+      [0,               a,     1 - a  ],
+      [0.75 * (1 - a),  0,     0.5 * a],
+    ],
+  ];
+}
+
 function buildStrata(a, t0, t1) {
   const b = (1 - a) / 2;
   return [
@@ -579,6 +594,8 @@ function buildModel(process, params) {
       return initializeModel(buildStrata(p.a ?? 0.5, p.t0 ?? 0.5, p.t1 ?? 0.5), false);
     case 'arch':
       return initializeModel(buildArch(p.a ?? 0.5), false);
+    case 'spiral':
+      return initializeModel(buildSpiral(p.a ?? 0.5), false);
     case 'fanizza': {
       const { T, isGHMM } = buildFanizza(p.alpha ?? 2000.0, p.lamb ?? 0.49);
       return initializeModel(T, isGHMM);
@@ -866,6 +883,7 @@ function structuralOnly(process, params) {
       case 'wing':    return buildWing(params.x, params.y);
       case 'strata':  return buildStrata(params.a, params.t0, params.t1);
       case 'arch':    return buildArch(params.a);
+      case 'spiral':  return buildSpiral(params.a);
       default: return null;
     }
   })();
