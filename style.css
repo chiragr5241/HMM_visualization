@@ -216,8 +216,9 @@ h1 {
   box-shadow: 0 0 0 1px var(--accent), 0 0 20px rgba(201, 148, 74, 0.08);
 }
 
-/* FANIZZA spans full bottom row */
-.proc-btn.fanizza-btn {
+/* FANIZZA and BLOCH WALK each span a full row */
+.proc-btn.fanizza-btn,
+.proc-btn.wide-btn {
   grid-column: 1 / 4;
 }
 
@@ -672,6 +673,132 @@ input.param-num::-webkit-inner-spin-button {
   flex: 0 0 96px !important;
   min-height: 0;
   border-top: 1px solid var(--border);
+}
+
+/* ── Bloch Walk view ─────────────────────────────────────────────── */
+.bloch-view {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.bloch-top {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 420px;
+}
+
+#bloch-plot { flex: 1 1 auto; min-width: 0; }
+
+.bloch-purity {
+  flex: 0 0 132px !important;
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+}
+
+.bloch-panel {
+  flex: 0 0 286px;
+  padding: 16px 18px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+}
+
+.dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-areas: ". n ." "w c e" ". s .";
+  gap: 6px;
+}
+.dpad-n { grid-area: n; --tok: #c9944a; }
+.dpad-s { grid-area: s; --tok: #5b9a8b; }
+.dpad-e { grid-area: e; --tok: #8bba7f; }
+.dpad-w { grid-area: w; --tok: #d4685a; }
+.dpad-c { grid-area: c; }
+
+.dpad-btn {
+  --p: 0.5;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  height: 66px;
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.08s;
+}
+/* Fill height = P(token), on a 0–50% scale (the largest it can be). */
+.dpad-btn[data-tok]::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--p) * 100%);
+  background: var(--tok);
+  opacity: 0.22;
+  transition: height 0.2s ease;
+}
+.dpad-btn > span { position: relative; }
+.dpad-btn:hover:not(:disabled) { border-color: var(--tok, var(--accent)); }
+.dpad-btn:active:not(:disabled) { transform: scale(0.96); }
+.dpad-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.dpad-tok { font-size: 18px; font-weight: 600; color: var(--tok); line-height: 1.1; }
+.dpad-dir { font-size: 9px; color: var(--muted); }
+.dpad-p   { font-size: 11px; color: var(--text-hi); font-variant-numeric: tabular-nums; }
+.dpad-c {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.dpad-c:hover { color: var(--accent-hi); }
+
+.bloch-actions {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 16px;
+}
+.bloch-actions .scale-btn { flex: 1; padding: 5px 0; }
+
+.bloch-tokens {
+  white-space: nowrap;
+  letter-spacing: 0.08em;
+}
+
+.bloch-rules-label { margin-top: 18px; }
+.bloch-rules .rule code {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-hi);
+  white-space: nowrap;
+}
+.bloch-rules .rule-note {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-variation-settings: 'opsz' 14;
+  margin: 2px 0 10px;
+}
+#bloch-sc { color: var(--accent-hi); }
+#bloch-mirror { margin-left: 4px; font-style: normal; }
+
+/* Narrow window: stack plot, panel, purity strip and let the plot area scroll. */
+@media (max-width: 1080px) {
+  .bloch-view { flex: 0 0 auto; }
+  .bloch-top { flex: 0 0 auto; flex-direction: column; min-height: 0; }
+  #bloch-plot { flex: 0 0 420px; }
+  .bloch-panel { flex: 0 0 auto; border-left: none; border-top: 1px solid var(--border); overflow: visible; }
+  .dpad { max-width: 260px; margin: 0 auto; }
 }
 
 .hidden { display: none !important; }

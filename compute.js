@@ -514,6 +514,118 @@ function buildFanizza(alpha, lamb) {
   return { T: [Da, Db], isGHMM: true };
 }
 
+// ── Bloch Walk (a.k.a. tom_quantum) ────────────────────────────────────────
+// Riechers, Elliott & Shai (2025) arXiv:2507.07432 App. D.2, Eqs. D18–D21
+// (also Shai et al. (2026) arXiv:2602.02385 App. C.1.2). A 3-dimensional GHMM with no finite HMM presentation: it is
+// simulated by one qubit of quantum memory, and its predictive vectors are
+// qubit states filling the x–z slice of the Bloch ball. Rows act on the
+// coefficients [c, b_x, b_z] of the operator basis (I/2, σ_x/2, σ_z/2).
+function buildBlochWalk(alpha, beta) {
+  const g2 = 1 / (4 * (alpha * alpha + beta * beta));   // γ², γ = 1/(2√(α²+β²))
+  const q = 0.25;
+  const d = (alpha * alpha - beta * beta) * g2;         // (α²−β²)γ²
+  const o = 2 * alpha * beta * g2;                      // 2αβγ²
+  return {
+    T: [
+      [[q, 0, o], [0, d, 0], [o, 0, q]],
+      [[q, 0, -o], [0, d, 0], [-o, 0, q]],
+      [[q, o, 0], [o, q, 0], [0, 0, d]],
+      [[q, -o, 0], [-o, q, 0], [0, 0, d]],
+    ],
+    isGHMM: true,
+  };
+}
+
+// Paper's training value (arXiv:2507.07432 App. E.3): α = 1, β = √51.
+const BLOCH_BETA = Math.sqrt(51);
+
+// The belief is the extended Bloch vector [1, x, z] (row vector), so the
+// stationary start is the fully mixed state [1, 0, 0] and the normaliser is
+// just the first component. Acting with T(n) gives, in closed form,
+//   P(0|1) = (1 ± s·z)/4,   P(2|3) = (1 ± s·x)/4
+//   token 0:  z → (z + s)/(1 + s·z),   x → c·x/(1 + s·z)   (others by symmetry)
+// with s = 2αβ/(α²+β²) and c = (α²−β²)/(α²+β²), s² + c² = 1.
+function blochModel(alpha, beta) {
+  const { T } = buildBlochWalk(alpha, beta);
+  const n2 = alpha * alpha + beta * beta;
+  return {
+    T,
+    s: 2 * alpha * beta / n2,
+    c: (alpha * alpha - beta * beta) / n2,
+    initialState: [1, 0, 0],
+    normEigvec: [1, 0, 0],
+    normConst: 1,
+    numStates: 3,
+    numSymbols: 4,
+    isGHMM: true,
+  };
+}
+
+function blochProbs(model, belief) {
+  const p = new Float64Array(4);
+  for (let k = 0; k < 4; k++) p[k] = Math.max(0, vecMatMul(belief, model.T[k])[0]);
+  return p;
+}
+
+function blochStep(model, belief, tok) {
+  const u = vecMatMul(belief, model.T[tok]);
+  return [1, u[1] / u[0], u[2] / u[0]];
+}
+
+function sampleBloch(model, batchSize, seqLen, seed) {
+  const rng = mulberry32(seed);
+  const x = [], z = [], t = [];
+  for (let b = 0; b < batchSize; b++) {
+    let belief = [1, 0, 0];
+    x.push(0); z.push(0); t.push(0);
+    for (let step = 1; step <= seqLen; step++) {
+      const p = blochProbs(model, belief);
+      belief = blochStep(model, belief, sampleCategorical(p, rng));
+      x.push(belief[1]); z.push(belief[2]); t.push(step);
+    }
+  }
+  return { x, z, t };
+}
+
+function enumerateBloch(model, maxSeqLen) {
+  // 0↔1 and 2↔3 undo each other (K0·K1 ∝ I, K2·K3 ∝ I), so only words that
+  // never follow a token with its inverse reach new beliefs.
+  const INVERSE = [1, 0, 3, 2];
+  const x = [], z = [], t = [];
+  let frontier = [{ belief: [1, 0, 0], last: -1 }];
+  for (let depth = 0; depth <= maxSeqLen; depth++) {
+    const next = [];
+    for (const node of frontier) {
+      x.push(node.belief[1]); z.push(node.belief[2]); t.push(depth);
+      if (depth === maxSeqLen) continue;
+      const p = blochProbs(model, node.belief);
+      for (let tok = 0; tok < 4; tok++) {
+        if (node.last >= 0 && tok === INVERSE[node.last]) continue;
+        if (p[tok] < 1e-12) continue;
+        next.push({ belief: blochStep(model, node.belief, tok), last: tok });
+      }
+    }
+    frontier = next;
+  }
+  return { x, z, t };
+}
+
+function computeBloch(params, mode, modeParams) {
+  const model = blochModel(1.0, params.beta ?? BLOCH_BETA);
+  const pts = mode === 'sample'
+    ? sampleBloch(model, modeParams.batchSize || 500, modeParams.seqLen || 20, modeParams.seed || 0)
+    : enumerateBloch(model, modeParams.maxSeqLen || 8);
+  return {
+    type: 'bloch',
+    ...pts,
+    n: pts.x.length,
+    s: model.s,
+    c: model.c,
+    mode,
+    metrics: { supported: false },
+  };
+}
+
 // ── Model initialization ───────────────────────────────────────────────────
 
 function sumTransitionMatrices(T) {
@@ -600,6 +712,8 @@ function buildModel(process, params) {
       const { T, isGHMM } = buildFanizza(p.alpha ?? 2000.0, p.lamb ?? 0.49);
       return initializeModel(T, isGHMM);
     }
+    case 'bloch':
+      return blochModel(p.alpha ?? 1.0, p.beta ?? BLOCH_BETA);
     default:
       throw new Error(`Unknown process: ${process}`);
   }
@@ -835,6 +949,7 @@ function formatPCA(beliefStates, model) {
 // ── Top-level compute dispatcher ──────────────────────────────────────────
 
 function computeResult(process, params, mode, modeParams) {
+  if (process === 'bloch') return computeBloch(params, mode, modeParams);
   const model = buildModel(process, params);
   const isGHMM = model.isGHMM;
   // Structural metrics computed against the (post-scaling) T used by the model.

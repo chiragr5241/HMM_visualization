@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,600&family=Instrument+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
 <div class="layout">
@@ -40,6 +40,7 @@
         <button class="proc-btn" data-proc="arch">ARCH</button>
         <button class="proc-btn" data-proc="spiral">SPIRAL</button>
         <button class="proc-btn fanizza-btn" data-proc="fanizza">FANIZZA</button>
+        <button class="proc-btn wide-btn" data-proc="bloch">BLOCH WALK</button>
       </div>
     </div>
 
@@ -188,6 +189,9 @@
       <a href="https://arxiv.org/abs/2405.15943" target="_blank" class="ref-link">
         <span>arXiv:2405.15943</span> &#8599;
       </a>
+      <a href="https://arxiv.org/abs/2507.07432" target="_blank" class="ref-link">
+        <span>arXiv:2507.07432</span> &#8599;
+      </a>
       <a href="https://github.com/Astera-org/simplexity" target="_blank" class="ref-link">
         simplexity &#8599;
       </a>
@@ -214,6 +218,51 @@
     <!-- Plot area -->
     <div class="plot-area" id="plot-area">
       <div id="main-plot" class="plot-container"></div>
+
+      <!-- Bloch Walk: belief disk + step-through walker -->
+      <div id="bloch-view" class="bloch-view hidden">
+        <div class="bloch-top">
+          <div id="bloch-plot" class="plot-container"></div>
+          <aside class="bloch-panel">
+            <div class="section-label">Walk <span class="muted">&middot; click a token or use arrow keys</span></div>
+            <div class="dpad" id="bloch-dpad">
+              <button class="dpad-btn dpad-n" data-tok="0"><span class="dpad-tok">0</span><span class="dpad-dir">&uarr; +z</span><span class="dpad-p">25%</span></button>
+              <button class="dpad-btn dpad-w" data-tok="3"><span class="dpad-tok">3</span><span class="dpad-dir">&larr; &minus;x</span><span class="dpad-p">25%</span></button>
+              <button class="dpad-btn dpad-c" id="bloch-random" title="Sample one token from P">sample</button>
+              <button class="dpad-btn dpad-e" data-tok="2"><span class="dpad-tok">2</span><span class="dpad-dir">&rarr; +x</span><span class="dpad-p">25%</span></button>
+              <button class="dpad-btn dpad-s" data-tok="1"><span class="dpad-tok">1</span><span class="dpad-dir">&darr; &minus;z</span><span class="dpad-p">25%</span></button>
+            </div>
+            <div class="bloch-actions">
+              <button class="scale-btn" id="bloch-play">Play</button>
+              <button class="scale-btn" id="bloch-undo">Undo</button>
+              <button class="scale-btn" id="bloch-reset">Reset</button>
+            </div>
+
+            <div class="metrics-grid bloch-readout">
+              <div class="metric-row"><span class="metric-label">belief (x, z)</span><span class="metric-val" id="bloch-xz">(0.000, 0.000)</span></div>
+              <div class="metric-row"><span class="metric-label">purity |r|</span><span class="metric-val highlight" id="bloch-r">0.000</span></div>
+              <div class="metric-row"><span class="metric-label">context</span><span class="metric-val bloch-tokens" id="bloch-tokens">&empty;</span></div>
+            </div>
+
+            <div class="section-label bloch-rules-label">Rules</div>
+            <div class="bloch-rules">
+              <div class="rule"><code>P(0), P(1) = (1 &plusmn; s&middot;z) / 4</code></div>
+              <div class="rule"><code>P(2), P(3) = (1 &plusmn; s&middot;x) / 4</code></div>
+              <div class="rule-note">a weak compass reading of the arrow</div>
+              <div class="rule"><code>see 0:&nbsp; z &rarr; (z + s) / (1 + s&middot;z)</code></div>
+              <div class="rule"><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; x &rarr; c&middot;x / (1 + s&middot;z)</code></div>
+              <div class="rule-note">kicked toward that token&rsquo;s pole; 1, 2, 3 by symmetry</div>
+              <div class="rule"><code id="bloch-sc">s = 0.275 &nbsp; c = &minus;0.962</code></div>
+              <div class="rule-note">
+                <span id="bloch-flip-note"></span>
+                <button class="scale-btn" id="bloch-mirror" title="Same s, opposite sign of c">&beta; &rarr; 1/&beta;</button>
+              </div>
+              <div class="rule-note">0&harr;1 and 2&harr;3 undo each other &middot; rim = certain</div>
+            </div>
+          </aside>
+        </div>
+        <div id="bloch-purity-plot" class="plot-container bloch-purity"></div>
+      </div>
       <div id="cantor-plot" class="plot-container cantor-container hidden"></div>
       <div id="obs-prob-plot" class="plot-container obs-prob-container hidden"></div>
       <div id="log-obs-prob-plot" class="plot-container log-obs-prob-container hidden"></div>
@@ -237,7 +286,7 @@
   </main>
 
 </div>
-<script src="compute.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="compute.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
