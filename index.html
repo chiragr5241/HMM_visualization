@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,600&family=Instrument+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-  <link rel="stylesheet" href="style.css?v=7" />
+  <link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
 <div class="layout">
@@ -16,21 +16,17 @@
   <!-- ══════════════════ SIDEBAR ══════════════════ -->
   <aside class="sidebar">
 
-    <div class="sidebar-header">
-      <div class="logo-row">
-        <span class="logo-icon">&#x2B21;</span>
-        <div>
-          <h1>Belief State<br/>Geometry</h1>
-          <p class="subtitle">Mixed-State Presentations of generative processes</p>
-        </div>
-      </div>
-    </div>
+    <header class="sidebar-header">
+      <svg class="logo-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3 L21.5 19.5 H2.5 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        <circle cx="12" cy="13.5" r="1.6" fill="currentColor"/>
+      </svg>
+      <h1>Belief State Geometry</h1>
+    </header>
 
-    <!-- Process selector -->
-    <div class="section">
-      <div class="section-label">Process</div>
+    <section class="section" aria-label="Process">
       <div class="process-grid" id="process-grid">
-        <button class="proc-btn active" data-proc="mess3">MESS3</button>
+        <button class="proc-btn" data-proc="mess3">MESS3</button>
         <button class="proc-btn" data-proc="mess3_2">MESS3-2</button>
         <button class="proc-btn" data-proc="river">RIVER</button>
         <button class="proc-btn" data-proc="leopard">LEOPARD</button>
@@ -39,254 +35,173 @@
         <button class="proc-btn" data-proc="strata">STRATA</button>
         <button class="proc-btn" data-proc="arch">ARCH</button>
         <button class="proc-btn" data-proc="spiral">SPIRAL</button>
-        <button class="proc-btn fanizza-btn" data-proc="fanizza">FANIZZA</button>
-        <button class="proc-btn wide-btn" data-proc="bloch">BLOCH WALK</button>
       </div>
-    </div>
+      <div class="process-grid ghmm-row">
+        <button class="proc-btn" data-proc="fanizza">FANIZZA</button>
+        <button class="proc-btn" data-proc="bloch">BLOCH WALK</button>
+      </div>
+      <p class="description" id="description"></p>
+      <p class="process-meta" id="process-meta"></p>
+    </section>
 
-    <!-- Parameters -->
-    <div class="section" id="param-section">
-      <div class="section-label" id="param-section-label">Parameters</div>
+    <section class="section" id="param-section" aria-label="Parameters">
       <div id="param-list"></div>
-    </div>
+    </section>
 
-    <!-- Mode toggle -->
-    <div class="section">
-      <div class="section-label">Mode</div>
-      <div class="mode-toggle">
+    <details class="section sampling" id="sampling">
+      <summary>
+        <span class="section-label">Sampling</span>
+        <span class="sampling-summary" id="sampling-summary">500 &times; 20</span>
+      </summary>
+
+      <div class="mode-toggle" role="group" aria-label="Mode">
         <button class="mode-btn active" id="mode-sample">Sample</button>
         <button class="mode-btn" id="mode-enum">Enumerate</button>
       </div>
-    </div>
 
-    <!-- Sample mode controls -->
-    <div class="section" id="sample-section">
-      <div class="section-label">Sampling <span class="muted">(batch &times; seq length)</span></div>
-      <div class="param-row">
-        <div class="param-header">
-          <label class="param-label">Batch size</label>
-          <span class="param-val" id="batch-size-val">500</span>
+      <div id="sample-section">
+        <div class="param-row">
+          <div class="param-header">
+            <label class="param-label" for="batch-size">Sequences</label>
+            <span class="param-val" id="batch-size-val">500</span>
+          </div>
+          <input type="range" class="slider" id="batch-size" min="0" max="10" step="1" value="8" />
         </div>
-        <div class="slider-row">
-          <span class="slider-bound">50</span>
-          <input type="range" class="slider" id="batch-size" min="50" max="2000" step="50" value="500" />
-          <span class="slider-bound right">2000</span>
+        <div class="param-row">
+          <div class="param-header">
+            <label class="param-label" for="seq-len">Sequence length</label>
+            <span class="param-val" id="seq-len-val">20</span>
+          </div>
+          <input type="range" class="slider" id="seq-len" min="0" max="12" step="1" value="4" />
         </div>
+        <div class="depth-hint"><span id="point-estimate">10,500</span> points</div>
       </div>
-      <div class="param-row">
-        <div class="param-header">
-          <label class="param-label">Sequence length</label>
-          <span class="param-val" id="seq-len-val">20</span>
-        </div>
-        <div class="slider-row">
-          <span class="slider-bound">1</span>
-          <input type="range" class="slider" id="seq-len" min="1" max="100" step="1" value="20" />
-          <span class="slider-bound right">100</span>
-        </div>
-      </div>
-      <div class="depth-hint">
-        &#8776; <span id="point-estimate">10,500</span> points
-      </div>
-    </div>
 
-    <!-- Enumerate mode controls (hidden by default) -->
-    <div class="section hidden" id="enum-section">
-      <div class="section-label">Depth <span class="muted">(max sequence length)</span></div>
-      <div class="depth-row">
-        <input type="range" class="slider" id="max-seq-len" min="3" max="14" step="1" value="8" />
-        <span class="depth-val" id="max-seq-len-val">8</span>
+      <div class="hidden" id="enum-section">
+        <div class="param-row">
+          <div class="param-header">
+            <label class="param-label" for="max-seq-len">Depth</label>
+            <span class="param-val" id="max-seq-len-val">8</span>
+          </div>
+          <input type="range" class="slider" id="max-seq-len" min="3" max="14" step="1" value="8" />
+        </div>
+        <div class="depth-hint"><span id="node-estimate">9,841</span> nodes</div>
       </div>
-      <div class="depth-hint">
-        &#8776; <span id="node-estimate">9,841</span> nodes
-      </div>
-    </div>
 
-    <!-- Compute -->
-    <div class="compute-section">
-      <button class="compute-btn" id="compute-btn">
-        <svg class="btn-icon" viewBox="0 0 16 16" fill="none">
-          <path d="M8 1.5L13.5 8L8 14.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M2.5 8H13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-        <span class="btn-label">Sample</span>
-      </button>
-    </div>
+      <button class="compute-btn" id="compute-btn"><span class="btn-label">Resample</span></button>
+    </details>
 
-    <!-- Stats -->
-    <div class="stats-panel" id="stats-panel">
-      <div class="stat-item">
-        <div class="stat-label">Points</div>
-        <div class="stat-val" id="stat-nodes">&mdash;</div>
+    <section class="section mini-geo hidden" id="mini-geo" aria-label="Geometry preview">
+      <div class="mini-geo-head">
+        <span class="section-label">Geometry</span>
+        <span class="mini-geo-hint">click to open</span>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <div class="stat-label">Time</div>
-        <div class="stat-val" id="stat-time">&mdash;</div>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <div class="stat-label">States</div>
-        <div class="stat-val" id="stat-states">3</div>
-      </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <div class="stat-label">Symbols</div>
-        <div class="stat-val" id="stat-symbols">3</div>
-      </div>
-    </div>
+      <div id="mini-plot" class="viz" role="button" tabindex="0" title="Open the Geometry view"></div>
+    </section>
 
-    <!-- Structural metrics: mixing rate & entropy -->
-    <div class="section structural-section" id="structural-section">
-      <div class="section-label">
-        Structural metrics
-        <span class="muted">&middot; Dai et&nbsp;al. axes</span>
-      </div>
-      <div class="metrics-grid" id="metrics-grid">
-        <div class="metric-row">
-          <span class="metric-label">&mu; = |&lambda;<sub>2</sub>|</span>
-          <span class="metric-val highlight" id="metric-mu">&mdash;</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">&lambda;<sub>2</sub> (raw)</span>
-          <span class="metric-val" id="metric-lambda2">&mdash;</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">&pi;</span>
-          <span class="metric-val" id="metric-pi">&mdash;</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">H(A)</span>
-          <span class="metric-val" id="metric-HA">&mdash; <span class="metric-unit">nats</span></span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">H(B, &pi;)</span>
-          <span class="metric-val" id="metric-HB">&mdash; <span class="metric-unit">nats</span></span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">h&#771;<sub>A</sub></span>
-          <span class="metric-val" id="metric-hA">&mdash;</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">h&#771;<sub>B</sub></span>
-          <span class="metric-val" id="metric-hB">&mdash;</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">h<sub>total</sub></span>
-          <span class="metric-val highlight" id="metric-htot">&mdash;</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">1 / (1 &minus; &mu;)</span>
-          <span class="metric-val" id="metric-mixtime">&mdash; <span class="metric-unit">steps</span></span>
-        </div>
-      </div>
-      <div class="metrics-note hidden" id="metrics-note"></div>
-    </div>
-
-    <!-- Description -->
-    <div class="description" id="description"></div>
-
-    <div class="sidebar-footer">
-      <a href="https://arxiv.org/abs/2405.15943" target="_blank" class="ref-link">
-        <span>arXiv:2405.15943</span> &#8599;
-      </a>
-      <a href="https://arxiv.org/abs/2507.07432" target="_blank" class="ref-link">
-        <span>arXiv:2507.07432</span> &#8599;
-      </a>
-      <a href="https://github.com/Astera-org/simplexity" target="_blank" class="ref-link">
-        simplexity &#8599;
-      </a>
-    </div>
-
+    <footer class="sidebar-footer">
+      <a href="https://arxiv.org/abs/2405.15943" target="_blank" class="ref-link">2405.15943</a>
+      <a href="https://arxiv.org/abs/2507.07432" target="_blank" class="ref-link">2507.07432</a>
+      <a href="https://arxiv.org/abs/2609.17376" target="_blank" class="ref-link">2609.17376</a>
+      <a href="https://github.com/Astera-org/simplexity" target="_blank" class="ref-link">simplexity</a>
+    </footer>
   </aside>
 
   <!-- ══════════════════ MAIN ══════════════════ -->
   <main class="main">
 
-    <!-- Loading overlay -->
-    <div class="loading-overlay hidden" id="loading-overlay">
-      <div class="loading-card">
-        <div class="spinner-ring"></div>
-        <div class="loading-text">
-          Computing&hellip;
-          <span class="loading-sub" id="loading-sub">
-            Running in-browser computation
-          </span>
-        </div>
+    <nav class="view-bar">
+      <div class="view-tabs" role="tablist">
+        <button class="view-tab active" role="tab" data-view="geometry">Geometry</button>
+        <button class="view-tab" role="tab" data-view="sweep">Sweep</button>
+        <button class="view-tab" role="tab" data-view="emissions">Emissions</button>
       </div>
+      <span class="view-caption" id="view-caption"></span>
+    </nav>
+
+    <div class="loading-overlay hidden" id="loading-overlay">
+      <div class="spinner-ring"></div>
     </div>
 
-    <!-- Plot area -->
-    <div class="plot-area" id="plot-area">
-      <div id="main-plot" class="plot-container"></div>
+    <!-- Geometry -->
+    <section class="view" id="view-geometry">
+      <div id="main-plot" class="viz"></div>
 
-      <!-- Bloch Walk: belief disk + step-through walker -->
       <div id="bloch-view" class="bloch-view hidden">
         <div class="bloch-top">
-          <div id="bloch-plot" class="plot-container"></div>
+          <div id="bloch-plot" class="viz"></div>
           <aside class="bloch-panel">
-            <div class="section-label">Walk <span class="muted">&middot; click a token or use arrow keys</span></div>
             <div class="dpad" id="bloch-dpad">
-              <button class="dpad-btn dpad-n" data-tok="0"><span class="dpad-tok">0</span><span class="dpad-dir">&uarr; +z</span><span class="dpad-p">25%</span></button>
-              <button class="dpad-btn dpad-w" data-tok="3"><span class="dpad-tok">3</span><span class="dpad-dir">&larr; &minus;x</span><span class="dpad-p">25%</span></button>
-              <button class="dpad-btn dpad-c" id="bloch-random" title="Sample one token from P">sample</button>
-              <button class="dpad-btn dpad-e" data-tok="2"><span class="dpad-tok">2</span><span class="dpad-dir">&rarr; +x</span><span class="dpad-p">25%</span></button>
-              <button class="dpad-btn dpad-s" data-tok="1"><span class="dpad-tok">1</span><span class="dpad-dir">&darr; &minus;z</span><span class="dpad-p">25%</span></button>
+              <button class="dpad-btn dpad-n" data-tok="0"><span class="dpad-tok">0</span><span class="dpad-dir">+z</span><span class="dpad-p">25%</span></button>
+              <button class="dpad-btn dpad-w" data-tok="3"><span class="dpad-tok">3</span><span class="dpad-dir">&minus;x</span><span class="dpad-p">25%</span></button>
+              <button class="dpad-btn dpad-c" id="bloch-random" title="Sample one token">sample</button>
+              <button class="dpad-btn dpad-e" data-tok="2"><span class="dpad-tok">2</span><span class="dpad-dir">+x</span><span class="dpad-p">25%</span></button>
+              <button class="dpad-btn dpad-s" data-tok="1"><span class="dpad-tok">1</span><span class="dpad-dir">&minus;z</span><span class="dpad-p">25%</span></button>
             </div>
             <div class="bloch-actions">
-              <button class="scale-btn" id="bloch-play">Play</button>
-              <button class="scale-btn" id="bloch-undo">Undo</button>
-              <button class="scale-btn" id="bloch-reset">Reset</button>
+              <button class="chip-btn" id="bloch-play">Play</button>
+              <button class="chip-btn" id="bloch-undo">Undo</button>
+              <button class="chip-btn" id="bloch-reset">Reset</button>
             </div>
+            <dl class="readout">
+              <div><dt>belief (x, z)</dt><dd id="bloch-xz">(0.000, 0.000)</dd></div>
+              <div><dt>purity |r|</dt><dd id="bloch-r">0.000</dd></div>
+              <div><dt>context</dt><dd class="bloch-tokens" id="bloch-tokens">&empty;</dd></div>
+            </dl>
+            <p class="hint">Arrow keys step, Backspace undoes.</p>
 
-            <div class="metrics-grid bloch-readout">
-              <div class="metric-row"><span class="metric-label">belief (x, z)</span><span class="metric-val" id="bloch-xz">(0.000, 0.000)</span></div>
-              <div class="metric-row"><span class="metric-label">purity |r|</span><span class="metric-val highlight" id="bloch-r">0.000</span></div>
-              <div class="metric-row"><span class="metric-label">context</span><span class="metric-val bloch-tokens" id="bloch-tokens">&empty;</span></div>
-            </div>
-
-            <div class="section-label bloch-rules-label">Rules</div>
-            <div class="bloch-rules">
+            <details class="bloch-rules">
+              <summary>Update rule</summary>
               <div class="rule"><code>P(0), P(1) = (1 &plusmn; s&middot;z) / 4</code></div>
               <div class="rule"><code>P(2), P(3) = (1 &plusmn; s&middot;x) / 4</code></div>
-              <div class="rule-note">a weak compass reading of the arrow</div>
-              <div class="rule"><code>see 0:&nbsp; z &rarr; (z + s) / (1 + s&middot;z)</code></div>
-              <div class="rule"><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; x &rarr; c&middot;x / (1 + s&middot;z)</code></div>
-              <div class="rule-note">kicked toward that token&rsquo;s pole; 1, 2, 3 by symmetry</div>
+              <div class="rule"><code>0: z &rarr; (z + s)/(1 + s&middot;z)</code></div>
+              <div class="rule"><code>&nbsp;&nbsp; x &rarr; c&middot;x/(1 + s&middot;z)</code></div>
               <div class="rule"><code id="bloch-sc">s = 0.275 &nbsp; c = &minus;0.962</code></div>
-              <div class="rule-note">
-                <span id="bloch-flip-note"></span>
-                <button class="scale-btn" id="bloch-mirror" title="Same s, opposite sign of c">&beta; &rarr; 1/&beta;</button>
-              </div>
-              <div class="rule-note">0&harr;1 and 2&harr;3 undo each other &middot; rim = certain</div>
-            </div>
+              <p class="hint"><span id="bloch-flip-note"></span>
+                <button class="chip-btn" id="bloch-mirror" title="Same s, opposite sign of c">&beta; &rarr; 1/&beta;</button></p>
+              <p class="hint">0&harr;1 and 2&harr;3 undo each other; the rim is certainty.</p>
+            </details>
           </aside>
         </div>
-        <div id="bloch-purity-plot" class="plot-container bloch-purity"></div>
+        <div id="bloch-purity-plot" class="viz bloch-purity"></div>
       </div>
-      <div id="cantor-plot" class="plot-container cantor-container hidden"></div>
-      <div id="obs-prob-plot" class="plot-container obs-prob-container hidden"></div>
-      <div id="log-obs-prob-plot" class="plot-container log-obs-prob-container hidden"></div>
-      <div id="param-grid-wrapper" class="param-grid-wrapper hidden">
-        <div class="grid-scale-toggle" id="grid-scale-toggle">
-          <span class="grid-scale-label">Axes (a, x)</span>
-          <button class="scale-btn active" data-scale="linear">Linear</button>
-          <button class="scale-btn" data-scale="log">Log</button>
-        </div>
-        <div id="param-grid-plot" class="plot-container param-grid-container"></div>
-      </div>
-    </div>
+    </section>
 
-    <!-- Empty state -->
-    <div class="empty-state hidden" id="empty-state">
-      <div class="empty-icon">&#x2B21;</div>
-      <div class="empty-title">No data yet</div>
-      <div class="empty-sub">Select a process and click <strong>Sample</strong></div>
-    </div>
+    <!-- Sweep -->
+    <section class="view hidden" id="view-sweep">
+      <div class="sweep-bar">
+        <div class="seg" id="sweep-color" role="group" aria-label="Heatmap colour">
+          <button class="seg-btn active" data-color="mu">|&lambda;<sub>2</sub>|</button>
+          <button class="seg-btn" data-color="h">H&#771;</button>
+        </div>
+        <span class="sweep-axes" id="sweep-axes"></span>
+        <div class="seg" id="sweep-scale" role="group" aria-label="Axis scale">
+          <button class="seg-btn active" data-scale="linear">lin</button>
+          <button class="seg-btn" data-scale="log">log</button>
+        </div>
+        <button class="chip-btn toggle" id="paper-toggle" aria-pressed="true"
+                title="Parametrizations used in arXiv:2609.17376">Paper regime</button>
+        <span class="sweep-readout" id="sweep-readout"></span>
+        <details class="metrics-pop">
+          <summary>All metrics</summary>
+          <dl class="readout" id="metrics-list"></dl>
+        </details>
+      </div>
+      <div class="sweep-plots">
+        <div id="param-plot" class="viz"></div>
+        <div id="regime-plot" class="viz"></div>
+      </div>
+    </section>
+
+    <!-- Emissions -->
+    <section class="view hidden" id="view-emissions">
+      <div id="obs-prob-plot" class="viz"></div>
+      <div id="log-obs-prob-plot" class="viz"></div>
+    </section>
 
   </main>
-
 </div>
-<script src="compute.js?v=11"></script>
-<script src="app.js?v=12"></script>
+<script src="compute.js?v=12"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>

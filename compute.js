@@ -205,24 +205,60 @@ function eigenvalues3x3(A) {
 }
 
 function eigenvaluesGeneric(A) {
-  // Fallback for n != 3: deflated power iteration after subtracting the
-  // dominant outer product. Works for the small (≤4×4) matrices in this app
-  // but loses accuracy on tightly clustered eigenvalues. Only used when the
-  // 3×3 closed-form path is unavailable.
+  // Any n ≤ ~6: characteristic polynomial (Faddeev–LeVerrier), then all
+  // roots at once (Durand–Kerner). Handles complex pairs, unlike power
+  // iteration with deflation (which reported λ₂ = 1 for ARCH at a = 0.99).
   const n = A.length;
-  const eigs = [];
-  let M = A.map(row => Array.from(row));
-  for (let k = 0; k < n; k++) {
-    const { eigenvector: v, eigenvalue: lam } = dominantEig(M);
-    eigs.push({ re: lam, im: 0 });
-    // Deflate: M ← M − λ v vᵀ / (vᵀv)
-    let vv = 0;
-    for (let i = 0; i < n; i++) vv += v[i] * v[i];
-    if (vv === 0) break;
-    for (let i = 0; i < n; i++)
-      for (let j = 0; j < n; j++) M[i][j] -= lam * v[i] * v[j] / vv;
+  const c = new Array(n + 1).fill(0);   // λⁿ + c[n−1]λⁿ⁻¹ + … + c[0]
+  c[n] = 1;
+  let M = A.map(row => row.map(() => 0));
+  for (let k = 1; k <= n; k++) {
+    const AM = A.map((row, i) => row.map((_, j) => {
+      let v = 0;
+      for (let l = 0; l < n; l++) v += A[i][l] * M[l][j];
+      return v;
+    }));
+    M = AM.map((row, i) => row.map((v, j) => v + (i === j ? c[n - k + 1] : 0)));
+    let tr = 0;
+    for (let i = 0; i < n; i++) for (let l = 0; l < n; l++) tr += A[i][l] * M[l][i];
+    c[n - k] = -tr / k;
   }
-  return eigs;
+  const mul = (a, b) => ({ re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re });
+  const sub = (a, b) => ({ re: a.re - b.re, im: a.im - b.im });
+  const div = (a, b) => {
+    const d = b.re * b.re + b.im * b.im || 1e-300;
+    return { re: (a.re * b.re + a.im * b.im) / d, im: (a.im * b.re - a.re * b.im) / d };
+  };
+  const evalPoly = (z) => {
+    let v = { re: 1, im: 0 };
+    for (let k = n - 1; k >= 0; k--) v = { re: v.re * z.re - v.im * z.im + c[k], im: v.re * z.im + v.im * z.re };
+    return v;
+  };
+  let roots = Array.from({ length: n }, (_, k) => {
+    const r = Math.pow(0.4, k), th = 0.9 * k + 0.3;      // standard non-real seeds
+    return { re: r * Math.cos(th), im: r * Math.sin(th) };
+  });
+  for (let iter = 0; iter < 2000; iter++) {
+    let delta = 0;
+    roots = roots.map((z, i) => {
+      let den = { re: 1, im: 0 };
+      roots.forEach((w, j) => { if (j !== i) den = mul(den, sub(z, w)); });
+      const step = div(evalPoly(z), den);
+      delta = Math.max(delta, Math.hypot(step.re, step.im));
+      return sub(z, step);
+    });
+    if (delta < 1e-15) break;
+  }
+  // A repeated root (ARCH has one) converges only to ~√ε and splits into a
+  // tight cluster; the cluster's mean is accurate, so snap members to it.
+  roots = roots.map(z => {
+    const near = roots.filter(w => Math.hypot(w.re - z.re, w.im - z.im) < 1e-3);
+    return {
+      re: near.reduce((a, w) => a + w.re, 0) / near.length,
+      im: near.reduce((a, w) => a + w.im, 0) / near.length,
+    };
+  });
+  return roots.map(z => (Math.abs(z.im) < 1e-9 ? { re: z.re, im: 0 } : z));
 }
 
 function sortedByModulus(eigs) {
@@ -289,6 +325,9 @@ function computeStructuralMetrics(T, pi, isGHMM) {
   const h_A_tilde = lnM > 0 ? H_A / lnM : 0;
   const h_B_tilde = lnL > 0 ? H_B / lnL : 0;
   const h_total = h_A_tilde + h_B_tilde;
+  // Combined normalized entropy H̃_TM = (H_T + H_M)/(log m + log n):
+  // the x-axis of Dai et al. Fig. 4 (left) and arXiv:2609.17376 App. C.2.
+  const h_TM = (H_A + H_B) / (lnM + lnL);
   const mixingTime = mu < 1 - 1e-12 ? 1 / (1 - mu) : Infinity;
 
   return {
@@ -304,9 +343,57 @@ function computeStructuralMetrics(T, pi, isGHMM) {
     h_A_tilde,
     h_B_tilde,
     h_total,
+    h_TM,
     mixingTime,
     numStates: n,
     numSymbols,
+  };
+}
+
+// GHMMs have no stochastic transition/emission matrices, so H_T, H_M are
+// undefined. Their mixing rate is still |λ₂| of the net operator; for the
+// entropy axis use the process's entropy rate, estimated from one sample path
+// (fixed seed, so neighbouring sweep points share random numbers).
+function entropyRate(model, steps = 3000, burn = 100, seed = 1) {
+  const rng = mulberry32(seed);
+  const { T, normEigvec, numSymbols } = model;
+  let belief = Array.from(model.initialState);
+  let H = 0;
+  for (let t = 0; t < burn + steps; t++) {
+    const denom = dot(belief, normEigvec);
+    const next = [], p = new Float64Array(numSymbols);
+    let total = 0;
+    for (let k = 0; k < numSymbols; k++) {
+      next.push(vecMatMul(belief, T[k]));
+      p[k] = Math.max(0, dot(next[k], normEigvec) / denom);
+      total += p[k];
+    }
+    for (let k = 0; k < numSymbols; k++) p[k] /= total;
+    if (t >= burn) for (let k = 0; k < numSymbols; k++) H -= xlogx(p[k]);
+    const tok = sampleCategorical(p, rng);
+    const norm = dot(next[tok], normEigvec);
+    belief = Array.from(next[tok], v => v / norm);
+  }
+  return H / steps;
+}
+
+function computeGHMMMetrics(model) {
+  const A = sumTransitionMatrices(model.T).map(row => Array.from(row));
+  const eigs = sortedByModulus(A.length === 3 ? eigenvalues3x3(A) : eigenvaluesGeneric(A));
+  const lambda2_raw = eigs[1];
+  const mu = Math.hypot(lambda2_raw.re, lambda2_raw.im);
+  const h_rate = entropyRate(model);
+  return {
+    supported: true,
+    ghmm: true,
+    eigenvalues: eigs,
+    lambda2_raw,
+    mu,
+    h_rate,
+    h_rate_tilde: h_rate / Math.log(model.numSymbols),
+    mixingTime: mu < 1 - 1e-12 ? 1 / (1 - mu) : Infinity,
+    numStates: model.numStates,
+    numSymbols: model.numSymbols,
   };
 }
 
@@ -615,14 +702,24 @@ function computeBloch(params, mode, modeParams) {
   const pts = mode === 'sample'
     ? sampleBloch(model, modeParams.batchSize || 500, modeParams.seqLen || 20, modeParams.seed || 0)
     : enumerateBloch(model, modeParams.maxSeqLen || 8);
+  const n = pts.x.length, { s } = model;
+  const obsProbs = [0, 1, 2, 3].map(() => new Array(n));
+  for (let i = 0; i < n; i++) {
+    obsProbs[0][i] = (1 + s * pts.z[i]) / 4;
+    obsProbs[1][i] = (1 - s * pts.z[i]) / 4;
+    obsProbs[2][i] = (1 + s * pts.x[i]) / 4;
+    obsProbs[3][i] = (1 - s * pts.x[i]) / 4;
+  }
   return {
     type: 'bloch',
     ...pts,
-    n: pts.x.length,
-    s: model.s,
+    n,
+    s,
     c: model.c,
+    obsProbs,
+    numSymbols: 4,
     mode,
-    metrics: { supported: false },
+    metrics: computeGHMMMetrics(model),
   };
 }
 
@@ -953,7 +1050,9 @@ function computeResult(process, params, mode, modeParams) {
   const model = buildModel(process, params);
   const isGHMM = model.isGHMM;
   // Structural metrics computed against the (post-scaling) T used by the model.
-  const metrics = computeStructuralMetrics(model.T, model.initialState, isGHMM);
+  const metrics = isGHMM
+    ? computeGHMMMetrics(model)
+    : computeStructuralMetrics(model.T, model.initialState, false);
 
   let beliefStates;
   if (mode === 'sample') {
@@ -983,6 +1082,14 @@ function computeResult(process, params, mode, modeParams) {
   result.mode = mode;
   result.metrics = metrics;
   return result;
+}
+
+// ── Metrics for any process at any params (parameter sweeps) ─────────────
+function processMetrics(process, params) {
+  if (process === 'bloch' || process === 'fanizza') {
+    return computeGHMMMetrics(buildModel(process, params));
+  }
+  return structuralOnly(process, params);
 }
 
 // ── Structural-only computation (no belief sampling, for grid sweeps) ─────
